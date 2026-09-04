@@ -1,0 +1,203 @@
+@import "tailwindcss";
+
+:root {
+  --background: #110f22;
+  --foreground: #f3eadc;
+  --card: #16132a;
+  --card-border: rgba(239, 230, 214, 0.08);
+  --muted: #1a1630;
+  --muted-foreground: #8d8474;
+  --accent-copper: #e8a060;
+  --accent-steel: #8fc0de;
+  --accent-warn: #c45c3a;
+  --accent-ember: #c9843a;
+  --tape: #efe6d6;
+  --ink: #16132a;
+  --chalk: #f3eadc;
+  --border-subtle: rgba(239, 230, 214, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-accent-copper: var(--accent-copper);
+  --color-accent-steel: var(--accent-steel);
+  --color-accent-warn: var(--accent-warn);
+  --color-accent-ember: var(--accent-ember);
+  --color-tape: var(--tape);
+  --color-ink: var(--ink);
+  --color-chalk: var(--chalk);
+  --font-sans: var(--font-display);
+  --font-mono: var(--font-data);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--background);
+  color: var(--chalk);
+  font-family: var(--font-data), ui-monospace, monospace;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, #2a2248 0, transparent 55%),
+    repeating-linear-gradient(0deg, transparent, transparent 3px, rgb(0 0 0 / 0.12) 0, rgb(0 0 0 / 0.12) 4px);
+}
+
+/* Terminal scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(239, 230, 214, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 230, 214, 0.25);
+}
+
+/* Tabular nums for data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Section heading — terminal style */
+.section-heading {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Section divider */
+.section-divider {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Live pulse dot */
+.live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-copper);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Skeleton loading */
+.skeleton {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 0.16; }
+}
+
+/* Metric bar inner fill */
+.metric-fill {
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Horizon probability row hover */
+.horizon-row {
+  transition: background-color 0.15s ease;
+}
+.horizon-row:hover {
+  background-color: rgba(239, 230, 214, 0.03);
+}
+
+/* Grain overlay */
+.grain {
+  position: fixed;
+  inset: -50%;
+  z-index: 999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 0.7s steps(6) infinite;
+}
+
+@keyframes grain-shift {
+  0% { transform: translate(0); }
+  20% { transform: translate(-2%, 1.5%); }
+  40% { transform: translate(1.5%, -2%); }
+  60% { transform: translate(-1%, -1%); }
+  80% { transform: translate(2%, 1%); }
+  100% { transform: translate(0); }
+}
+
+/* Ticker tape marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Compact text selection */
+::selection {
+  background: var(--accent-copper);
+  color: var(--ink);
+}
+
+/* Ghost / solid button styles */
+.ghost, .solid {
+  cursor: pointer;
+  border: 0;
+  padding: 10px 16px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.solid {
+  background: var(--tape);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+.solid:hover {
+  opacity: 0.92;
+}
+.ghost {
+  background: transparent;
+  color: var(--tape);
+  border-bottom: 1px solid rgba(239, 230, 214, 0.35);
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Brand mark */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: inherit;
+}
+
+/* Kicker label */
+.kicker {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-copper);
+}
