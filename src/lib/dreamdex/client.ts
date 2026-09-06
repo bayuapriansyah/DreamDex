@@ -23,6 +23,20 @@ export function getExchange(): SomniaMarkets {
     );
   }
 
+  if (!WS_RPC_URL) {
+    throw new Error(
+      "SOMNIA_WS_RPC_URL not set in .env.local. " +
+        "Required for SDK initialization."
+    );
+  }
+
+  if (!INDEXER_URL) {
+    throw new Error(
+      "SOMNIA_INDEXER_URL not set in .env.local. " +
+        "Required for market discovery."
+    );
+  }
+
   exchange = new SomniaMarkets({
     chain: CHAIN,
     addresses: ADDRESSES,

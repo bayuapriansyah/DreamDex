@@ -1,83 +1,90 @@
-import { NextResponse } from "next/server";
-import { getExchange } from "@/lib/dreamdex/client";
+import { NextRequest, NextResponse } from "next/server";
+import { fetchPositions } from "@/lib/dreamdex/positions";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-interface PositionData {
-  asset: string;
-  marketId: string;
-  symbol: string;
-  side: string;
-  amount: number;
-  entryPrice: number;
-  currentPrice: number;
-  pnl: number;
-  pnlPercent: number;
-  status: string;
-}
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const exchange = getExchange();
-    await exchange.loadMarkets();
+    const url = new URL(request.url);
+    const wallet = url.searchParams.get("wallet");
 
-    const [positions, balance] = await Promise.all([
-      exchange.fetchPositions().catch(() => []),
-      exchange.fetchBalance().catch(() => ({})),
-    ]);
-
-    const formatted: PositionData[] = [];
-
-    if (Array.isArray(positions)) {
-      for (const pos of positions) {
-        try {
-          const p = pos as unknown as Record<string, unknown>;
-          const symbol = (p.symbol as string) || "";
-          const side = (p.side as string) || "long";
-          const amount = Number(p.amount || p.contracts || 0);
-          const entryPrice = Number(p.entryPrice || p.averagePrice || 0);
-          const markPrice = Number(p.markPrice || p.currentPrice || entryPrice);
-          const pnl = Number(p.unrealizedPnl || p.pnl || 0);
-
-          if (amount === 0) continue;
-
-          const market = exchange.market(symbol);
-          const marketRecord = market as unknown as Record<string, unknown> | null;
-          const info = marketRecord?.info as Record<string, unknown> | undefined;
-          const marketId = (info?.marketId as string) || "";
-          const assetMatch = symbol.match(/^([A-Z]+)/);
-          const asset = assetMatch ? assetMatch[1] : symbol;
-
-          formatted.push({
-            asset,
-            marketId,
-            symbol,
-            side,
-            amount,
-            entryPrice,
-            currentPrice: markPrice,
-            pnl,
-            pnlPercent: entryPrice > 0 ? (pnl / (entryPrice * amount)) * 100 : 0,
-            status: "open",
-          });
-        } catch {
-          continue;
-        }
-      }
+    if (!wallet) {
+      return NextResponse.json(
+        { ok: false, error: "Missing wallet parameter" },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({
-      ok: true,
-      positions: formatted,
-      balance,
-      timestamp: new Date().toISOString(),
-    });
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return NextResponse.json(
+        { ok: false, error: "Invalid wallet address format" },
+        { status: 400 }
+      );
+    }
+
+    const result = await fetchPositions(wallet);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        positions: result.positions,
+        openOrders: result.openOrders,
+        recentTrades: result.recentTrades,
+        account: result.account,
+      },
+      {
+        status: 200,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
+      }
+    );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json(
-      { ok: false, error: msg, positions: [], balance: {} },
+      { ok: false, error: msg },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * POST — Save entry thesis (client-side localStorage)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.positionId || !body.entryThesis) {
+      return NextResponse.json(
+        { ok: false, error: "Missing positionId or entryThesis" },
+        { status: 400 }
+      );
+    }
+    // Thesis is stored client-side via localStorage
+    // This endpoint is a no-op that confirms the save request
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
+}
+
+/**
+ * PUT — Save comparison (client-side localStorage)
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    if (!body.positionId || !body.comparison) {
+      return NextResponse.json(
+        { ok: false, error: "Missing positionId or comparison" },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
   }
 }

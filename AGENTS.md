@@ -60,23 +60,21 @@ same asset and interpret the evolution of market conviction.
 
 Example:
 
--   15m: 70%
--   30m: 65%
--   45m: 61%
--   60m: 53%
+-   5m: 70%
+-   1h: 65%
+-   4h: 53%
 
 Interpretation: - Short-term bullish - Conviction decays with horizon -
 The market is less confident about sustained upside
-
 Another example:
 
--   15m: 55%
--   30m: 57%
--   45m: 79%
--   60m: 83%
+- 5m: 55%
+- 1h: 57%
+- 4h: 83%
 
-Interpretation: - Bullish conviction accelerates at longer horizons -
-Delayed bullish trajectory
+Interpretation:
+- Bullish conviction accelerates at longer horizons
+- Delayed bullish trajectory
 
 The key insight:
 
@@ -362,6 +360,130 @@ lifecycle: - Listed - Trading - Locked - Resolved / Voided
 Indexer data can lag on-chain state by seconds.
 
 Always gate critical state using on-chain data where appropriate.
+
+------------------------------------------------------------------------
+
+# 9.5 Canonical Data Model (Phase 1)
+
+All data flowing through the system uses canonical types from
+`src/lib/dreamdex/types.ts`.
+
+## Core Types
+
+| Type | Definition | Notes |
+|---|---|---|
+| `Probability` | `number` | 0..1, null = "data unavailable" |
+| `RawPrice` | `string` | Raw SDK fixed-point |
+| `HorizonMinutes` | `number` | 15, 30, 60, 240, 1440 |
+| `TokenAmount` | `number` | Normalized by decimals |
+| `QuoteVolume` | `number` | Normalized by quoteDecimals |
+| `BasisPoints` | `number` | 1 bp = 0.01% |
+
+## Canonical Normalization
+
+All normalization goes through `src/lib/dreamdex/normalization.ts`:
+
+- `normalizePrice(raw, decimals)` → Probability | null
+- `normalizeLastPrice(raw, decimals)` → Probability | null
+- `normalizeBookLevel(level, decimals)` → { price, size }
+- `normalizeQuoteVolume(raw, decimals)` → QuoteVolume | null
+- `midFromBidAsk(bid, ask)` → Probability | null
+- `sortByHorizon(items)` → sorted copy
+
+## Per-Market Decimals
+
+CRITICAL: Each `MarketData` carries its own `quoteDecimals` from the
+SDK's `BaseMarket.quoteDecimals`. Never use a global
+`COLLATERAL_DECIMALS` for normalizing per-market data.
+
+`COLLATERAL_DECIMALS = 6` in config.ts is FALLBACK ONLY.
+
+## SDK Field Reference
+
+Verified fields from `@somnia-chain/markets-sdk`:
+
+``` ts
+BaseMarket.quoteDecimals: number      // e.g. 6 for testnet tUSDC
+BaseMarket.lastPrice: string | null   // raw fixed-point
+BaseMarket.cumulativeQuoteVolume: string
+BaseMarket.baseDecimals: number
+BaseMarket.status: BinaryMarketStatus
+
+BookLevel { price: bigint, quantity: bigint }
+BinaryOrderBook { yesBids, yesAsks, noBids, noAsks }
+```
+
+## Data Flow
+
+SDK raw → normalizePrice/normalizeBookLevel → canonical types →
+temporal engine → trajectory → UI
+
+## Temporal Intelligence Pipeline
+
+``` text
+Temporal Engine (computeTemporalTrajectory)
+  ↓
+Market Regime (classifyRegime)
+  ↓
+Trajectory (metrics + state classification)
+  ↓
+What Changed (generateWhatChanged)
+  ↓
+Evidence (generateEvidence)
+  ↓
+Decision Context (buildDecisionContext)
+  ↓
+MAP THE NEXT HOUR (mapNextHour — forecast.ts)
+  ↓
+Strategy Composer (composeStrategies)
+  ↓
+Trade Preview → Execute
+```
+
+### Pipeline Modules
+
+| Module | File | Purpose |
+|---|---|---|
+| Temporal Engine | `temporal.ts` | Multi-horizon probability aggregation, metrics |
+| Forecast | `forecast.ts` | MAP THE NEXT HOUR — heuristic projection |
+| Decision Context | `decision.ts` | Unified pipeline output, regime, quality |
+| Strategy | `strategy.ts` | Conservative/balanced/aggressive composition |
+| AI Explanation | `ai.ts` | Optional OpenRouter explanation |
+
+### Decision Context Output
+
+The `DecisionContext` (from `decision.ts`) is the unified pipeline
+output. It contains:
+
+-   `trajectory` — full TemporalTrajectory
+-   `regime` — MarketRegime (state, strength, durationHint)
+-   `forecast` — HourForecast (7-point projection for next 60min)
+-   `decisionQuality` — composite score + tier
+-   `strategies` — 3 strategies (conservative/balanced/aggressive)
+-   `recommendedStrategy` — best fit for current conditions
+-   `pipelineSummary` — plain-language summary
+-   `verdict` — one-line actionable verdict
+
+### MAP THE NEXT HOUR
+
+The forecast engine (`forecast.ts`) projects the current trajectory
+forward using:
+
+-   Velocity (rate of probability change)
+-   Momentum (acceleration/deceleration)
+-   Persistence (directional consistency)
+-   Conviction decay (how conviction weakens over time)
+-   Cross-horizon divergence (uncertainty)
+
+Outputs 7 forecast points at 5, 10, 15, 20, 30, 45, 60 minutes.
+Each point has projected probability, upper/lower bounds, and
+confidence level.
+
+Confidence shrinks with:
+-   Lower data quality
+-   Higher cross-horizon divergence
+-   Longer forecast horizon
+-   Reversal/cross-horizon-conflict states
 
 ------------------------------------------------------------------------
 

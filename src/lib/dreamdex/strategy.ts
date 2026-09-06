@@ -1,4 +1,6 @@
 import type { TemporalTrajectory, MarketState } from "./temporal";
+import { sortByHorizon, BULLISH_THRESHOLD, BEARISH_THRESHOLD } from "./normalization";
+import { pctStr } from "./formatting";
 
 export type StrategyType = "conservative" | "balanced" | "aggressive";
 
@@ -61,13 +63,12 @@ function composeStrategy(
 ): Strategy {
   const config = STRATEGY_CONFIGS[type];
   const { metrics, state, horizons, confidence } = trajectory;
-  const sorted = [...horizons].sort(
-    (a, b) => a.horizonMinutes - b.horizonMinutes
-  );
+  const sorted = sortByHorizon(horizons);
+  const validHorizons = sorted.filter((h) => h.midProbability !== null);
 
   const avgProb =
-    sorted.length > 0
-      ? sorted.reduce((a, h) => a + h.midProbability, 0) / sorted.length
+    validHorizons.length > 0
+      ? validHorizons.reduce((a, h) => a + (h.midProbability as number), 0) / validHorizons.length
       : 0.5;
 
   const { side, reasoning } = determineSide(state, metrics, avgProb, config);
@@ -118,6 +119,10 @@ function determineSide(
     return { side: "hold", reasoning: "Insufficient data — no trade recommended." };
   }
 
+  if (state === "single-horizon") {
+    return { side: "hold", reasoning: "Single horizon — multi-horizon trajectory unavailable." };
+  }
+
   if (state === "cross-horizon-conflict") {
     if (config.riskTolerance < 0.5) {
       return {
@@ -142,9 +147,9 @@ function determineSide(
   }
 
   const isBullish =
-    state.includes("bullish") || (avgProb > 0.52 && metrics.directionStrength > 0.2);
+    state.includes("bullish") || (avgProb > BULLISH_THRESHOLD && metrics.directionStrength > 0.2);
   const isBearish =
-    state.includes("bearish") || (avgProb < 0.48 && metrics.directionStrength > 0.2);
+    state.includes("bearish") || (avgProb < BEARISH_THRESHOLD && metrics.directionStrength > 0.2);
 
   if (isBullish) {
     if (state === "bullish-decay" && config.riskTolerance < 0.5) {
@@ -156,7 +161,7 @@ function determineSide(
     const strength = metrics.persistence > 0.7 ? "strong" : "moderate";
     return {
       side: "buy",
-      reasoning: `${strength} bullish signal. Velocity ${(metrics.velocityPerHour * 100).toFixed(2)}%/hr, persistence ${(metrics.persistence * 100).toFixed(0)}%.`,
+      reasoning: `${strength} bullish signal. Velocity ${pctStr(metrics.velocityPerHour, 2)}%/hr, persistence ${pctStr(metrics.persistence, 0)}%.`,
     };
   }
 
@@ -170,7 +175,7 @@ function determineSide(
     const strength = metrics.persistence > 0.7 ? "strong" : "moderate";
     return {
       side: "sell",
-      reasoning: `${strength} bearish signal. Velocity ${(metrics.velocityPerHour * 100).toFixed(2)}%/hr, persistence ${(metrics.persistence * 100).toFixed(0)}%.`,
+      reasoning: `${strength} bearish signal. Velocity ${pctStr(metrics.velocityPerHour, 2)}%/hr, persistence ${pctStr(metrics.persistence, 0)}%.`,
     };
   }
 
@@ -209,7 +214,7 @@ function determineEntryPrice(
   side: "buy" | "sell" | "hold",
   avgProb: number,
   config: { riskTolerance: number },
-  sorted: { horizonMinutes: number; midProbability: number; askProbability: number | null; bidProbability: number | null }[],
+  sorted: { horizonMinutes: number; midProbability: number | null; askProbability: number | null; bidProbability: number | null }[],
   suggestedHorizon: number
 ): number {
   if (side === "hold") return 0;
@@ -221,11 +226,11 @@ function determineEntryPrice(
   if (!target) return 0.5;
 
   if (side === "buy") {
-    const maxAsk = target.askProbability ?? target.midProbability;
+    const maxAsk = target.askProbability ?? target.midProbability ?? 0.5;
     const slippage = config.riskTolerance * 0.03;
     return Math.min(maxAsk + slippage, 0.99);
   } else {
-    const maxBid = target.bidProbability ?? target.midProbability;
+    const maxBid = target.bidProbability ?? target.midProbability ?? 0.5;
     const slippage = config.riskTolerance * 0.03;
     return Math.max(maxBid - slippage, 0.01);
   }

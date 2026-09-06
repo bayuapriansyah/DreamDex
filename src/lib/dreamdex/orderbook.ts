@@ -1,36 +1,63 @@
-// Server-side only — DreamDEX orderbook reads
+// Server-side only — DreamDEX orderbook reads via SDK
 import { getExchange } from "./client";
+import { normalizeBookLevel, midFromBidAsk } from "./normalization";
+import type { Probability, TokenAmount } from "./types";
 
-export interface OrderBookData {
-  bids: [number, number][];
-  asks: [number, number][];
-  bestBid: number | null;
-  bestAsk: number | null;
-  mid: number | null;
-  spread: number | null;
+export interface OrderBookLevel {
+  price: Probability | null;
+  size: TokenAmount | null;
 }
 
+export interface OrderBookData {
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  bestBid: Probability | null;
+  bestAsk: Probability | null;
+  mid: Probability | null;
+  spread: Probability | null;
+}
+
+/**
+ * Fetch the live orderbook for a binary market by pool address.
+ * Uses client.getBinaryOrderBook() which reads directly from chain.
+ *
+ * Per-market normalization:
+ *   Uses market.quoteDecimals (passed as `decimals` parameter).
+ *   NOT global COLLATERAL_DECIMALS.
+ */
 export async function fetchOrderBook(
-  symbol: string,
-  depth: number = 5
-): Promise<OrderBookData> {
+  pool: string,
+  decimals: number,
+  depth: number = 10
+): Promise<OrderBookData | null> {
   const exchange = getExchange();
-  await exchange.loadMarkets();
-  const book = await exchange.fetchOrderBook(symbol, depth);
 
-  const bestBid = book.bids[0]?.[0] ?? null;
-  const bestAsk = book.asks[0]?.[0] ?? null;
-  const mid =
-    bestBid !== null && bestAsk !== null ? (bestBid + bestAsk) / 2 : null;
-  const spread =
-    bestBid !== null && bestAsk !== null ? bestAsk - bestBid : null;
+  try {
+    const book = await exchange.client.getBinaryOrderBook(
+      pool as `0x${string}`,
+      { depth, decimals }
+    );
 
-  return {
-    bids: book.bids,
-    asks: book.asks,
-    bestBid,
-    bestAsk,
-    mid,
-    spread,
-  };
+    // Use shared normalizeBookLevel — consistent with temporal.ts
+    const bids = book.yesBids.map((lvl) =>
+      normalizeBookLevel(lvl, decimals)
+    );
+    const asks = book.yesAsks.map((lvl) =>
+      normalizeBookLevel(lvl, decimals)
+    );
+
+    const bestBid = bids[0]?.price ?? null;
+    const bestAsk = asks[0]?.price ?? null;
+
+    // Validate and compute mid/spread using canonical helpers
+    const mid = midFromBidAsk(bestBid, bestAsk);
+    const spread =
+      bestBid !== null && bestAsk !== null && bestBid <= bestAsk
+        ? (bestAsk - bestBid)
+        : null;
+
+    return { bids, asks, bestBid, bestAsk, mid, spread };
+  } catch {
+    return null;
+  }
 }
