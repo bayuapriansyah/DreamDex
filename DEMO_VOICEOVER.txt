@@ -1,0 +1,37 @@
+DreamDEX gives traders event probabilities. Will BTC be up or down in the next hour? But here's the problem. Those probabilities are isolated. A seventy percent on the five minute and a fifty three percent on the four hour. What does that mean together?
+
+Horizon is a temporal intelligence layer that turns those isolated probabilities into a trajectory of market conviction across time.
+
+This is the Market Explorer. For BTC, we see multiple event contract horizons. Five minutes, one hour, four hours. All updating in real time.
+
+Each card shows not just the probability, but the temporal trajectory. Is conviction accelerating, decaying, or reversing? And a confidence score based on data quality and cross horizon consistency.
+
+Let's dig deeper into BTC.
+
+This is the core of Horizon. At the top, the Event Context. We see YES and NO prices across every active horizon, with real orderbook data.
+
+Below that, the Temporal Trajectory Chart. This line shows how market conviction evolves from short to long horizons. Right now we see conviction decaying. Fifty five percent at five minutes dropping to forty eight percent at four hours.
+
+Market State tells us the regime. Bearish Decay. Velocity shows conviction is changing at minus two point five eight percent per hour. Persistence is one hundred percent. The bearish direction is consistent across all horizons.
+
+The Evidence section explains why the trajectory is classified this way. What the data supports, and what would invalidate the thesis.
+
+Now the actionable part. The Strategy Composer generates three strategies based on the current temporal analysis.
+
+Conservative. Smaller size, tighter risk. Balanced. Standard approach. Aggressive. Larger position when conviction is strong.
+
+I'll select Balanced. It suggests Direction DOWN, Entry at current price, Size one contract. The thesis says, strong bearish signal. Velocity minus zero point five two percent per hour, persistence one hundred percent.
+
+Clicking Execute sends a real trade to DreamDEX on Somnia Shannon testnet.
+
+Trade filled. There's the transaction hash. You can verify it on Somnia Shannon explorer. Real order, real on chain execution.
+
+Over in Portfolio, our new position appears as Open. Tracked on chain.
+
+The Thesis Tracker stores the original rationale. When we entered, what the market state was, the confidence and reversal risk at entry. Now it compares that snapshot to live data. Showing whether our thesis is strengthening, weakening, or unchanged.
+
+This is the feedback loop. Not just what you traded, but why. And whether the market still agrees.
+
+Horizon transforms isolated event probabilities into temporal intelligence. We don't only ask Up or Down. We ask how does conviction evolve across time.
+
+DreamDEX provides the event probability. Horizon provides the trajectory of conviction.
