@@ -3,10 +3,10 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
+import * as d3 from "d3";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ForecastCone } from "@/components/charts/ForecastCone";
-import { TemporalChart } from "@/components/charts/TemporalChart";
 import { SuggestedPrompts } from "@/components/copilot/SuggestedPrompts";
 import { OrderbookPanel } from "@/components/markets/OrderbookPanel";
 import { stateColor, probColor, formatHorizon, formatProb, formatVelocity, pctStr, pctNum, ppStr } from "@/lib/dreamdex/formatting";
@@ -594,6 +594,332 @@ export default function AnalyzePage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════ */
+/* TemporalChart — D3 probability trajectory              */
+/* ═══════════════════════════════════════════════════════ */
+
+function TemporalChart({
+  asset,
+  horizons,
+  state,
+  selectedHorizon,
+  forecastProjections,
+}: {
+  asset: string;
+  horizons: HorizonPoint[];
+  state: string;
+  selectedHorizon: number | null;
+  forecastProjections?: Array<{ offsetMinutes: number; projectedProbability: number | null; upperBound: number; lowerBound: number }>;
+}) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  const color = useMemo(() => {
+    if (state.includes("bullish")) return "#22c55e";
+    if (state.includes("bearish")) return "#ef4444";
+    if (state === "reversal-warning") return "#eab308";
+    if (state === "cross-horizon-conflict") return "#f97316";
+    return "#9ca3af";
+  }, [state]);
+
+  const drawChart = useCallback(() => {
+    if (!svgRef.current) return;
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+
+    const width = 560;
+    const height = 300;
+    const margin = { top: 24, right: 28, bottom: 40, left: 48 };
+    const innerW = width - margin.left - margin.right;
+    const innerH = height - margin.top - margin.bottom;
+
+    const yScale = d3.scaleLinear()
+      .domain([0, 1])
+      .range([innerH, 0]);
+
+    const sorted = [...horizons]
+      .filter((h) => h.midProbability !== null)
+      .sort((a, b) => a.horizonMinutes - b.horizonMinutes);
+
+    if (sorted.length < 1) return;
+
+    // Single horizon: show a single labeled point
+    if (sorted.length === 1) {
+      const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+      const x = innerW / 2;
+      const y = yScale(sorted[0].midProbability as number);
+
+      // 50% reference line
+      g.append("line")
+        .attr("x1", 0).attr("x2", innerW)
+        .attr("y1", yScale(0.5)).attr("y2", yScale(0.5))
+        .attr("stroke", "#475569").attr("stroke-dasharray", "4,4").attr("stroke-width", 1);
+
+      // Single point
+      g.append("circle")
+        .attr("cx", x).attr("cy", y)
+        .attr("r", 6)
+        .attr("fill", color).attr("fill-opacity", 0.2)
+        .attr("stroke", color).attr("stroke-width", 2);
+
+      // Label
+      g.append("text")
+        .attr("x", x).attr("y", y - 14)
+        .attr("text-anchor", "middle")
+        .attr("fill", color).attr("font-size", "11px").attr("font-weight", "600").attr("font-family", "var(--font-data)")
+        .text(`${pctStr(sorted[0].midProbability as number, 1)}%`);
+
+      // Horizon label
+      g.append("text")
+        .attr("x", x).attr("y", innerH + 30)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#9ca3af").attr("font-size", "10px").attr("font-family", "var(--font-data)")
+        .text(formatHorizon(sorted[0].horizonMinutes));
+
+      // Note
+      g.append("text")
+        .attr("x", x).attr("y", 16)
+        .attr("text-anchor", "middle")
+        .attr("fill", "#64748b").attr("font-size", "9px").attr("font-family", "var(--font-data)")
+        .text("SINGLE HORIZON — multi-horizon trajectory requires 2+ data points");
+
+      return;
+    }
+
+    // Categorical x-axis: equally spaced horizons
+    const horizonLabels = sorted.map((d) => formatHorizon(d.horizonMinutes));
+    const xScale = d3.scalePoint<string>()
+      .domain(horizonLabels)
+      .range([0, innerW])
+      .padding(0.15);
+
+    const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Grid lines
+    g.append("g")
+      .selectAll("line")
+      .data(yScale.ticks(5))
+      .join("line")
+      .attr("x1", 0).attr("x2", innerW)
+      .attr("y1", (d) => yScale(d)).attr("y2", (d) => yScale(d))
+      .attr("stroke", "#1e293b").attr("stroke-opacity", 0.5);
+
+    // 50% reference line
+    g.append("line")
+      .attr("x1", 0).attr("x2", innerW)
+      .attr("y1", yScale(0.5)).attr("y2", yScale(0.5))
+      .attr("stroke", "#475569").attr("stroke-dasharray", "4,4").attr("stroke-width", 1);
+    g.append("text")
+      .attr("x", innerW + 4).attr("y", yScale(0.5) + 3)
+      .attr("fill", "#475569").attr("font-size", "8px").attr("font-family", "var(--font-data)")
+      .text("NEUTRAL");
+
+    // Forecast uncertainty band (shaded area)
+    if (forecastProjections && forecastProjections.length > 0) {
+      const forecastData = forecastProjections
+        .filter((p) => p.projectedProbability !== null)
+        .map((p) => ({
+          offset: p.offsetMinutes,
+          prob: p.projectedProbability as number,
+          upper: p.upperBound,
+          lower: p.lowerBound,
+        }));
+
+      if (forecastData.length > 1) {
+        const fScale = d3.scaleLinear().domain([0, 60]).range([0, innerW]);
+        const upperArea = d3.area<{ offset: number; upper: number; lower: number }>()
+          .x((d) => fScale(d.offset))
+          .y0((d) => yScale(d.lower))
+          .y1((d) => yScale(d.upper))
+          .curve(d3.curveMonotoneX);
+        const lowerArea = d3.area<{ offset: number; lower: number; prob: number }>()
+          .x((d) => fScale(d.offset))
+          .y0((d) => yScale(d.lower))
+          .y1((d) => yScale(d.prob))
+          .curve(d3.curveMonotoneX);
+
+        g.append("path")
+          .datum(forecastData)
+          .attr("fill", `${color}10`)
+          .attr("d", upperArea);
+        g.append("path")
+          .datum(forecastData)
+          .attr("fill", `${color}08`)
+          .attr("d", lowerArea);
+
+        // Forecast dashed line
+        const fLine = d3.line<{ offset: number; prob: number }>()
+          .x((d) => fScale(d.offset))
+          .y((d) => yScale(d.prob))
+          .curve(d3.curveMonotoneX);
+
+        g.append("path")
+          .datum(forecastData)
+          .attr("fill", "none")
+          .attr("stroke", `${color}60`)
+          .attr("stroke-width", 1.5)
+          .attr("stroke-dasharray", "4,3")
+          .attr("d", fLine);
+      }
+    }
+
+    // Observed trajectory line
+    const line = d3.line<HorizonPoint>()
+      .x((d) => xScale(formatHorizon(d.horizonMinutes)) ?? 0)
+      .y((d) => yScale(d.midProbability as number))
+      .curve(d3.curveMonotoneX);
+
+    g.append("path")
+      .datum(sorted)
+      .attr("fill", "none")
+      .attr("stroke", color)
+      .attr("stroke-width", 2)
+      .attr("d", line);
+
+    // Data points
+    const points = g.selectAll<SVGGElement, HorizonPoint>(".point")
+      .data(sorted)
+      .join("g")
+      .attr("class", "point")
+      .attr("transform", (d) => `translate(${xScale(formatHorizon(d.horizonMinutes)) ?? 0},${yScale(d.midProbability as number)})`);
+
+    points.append("circle")
+      .attr("r", (d) => selectedHorizon === d.horizonMinutes ? 6 : 4)
+      .attr("fill", (d) => selectedHorizon === d.horizonMinutes ? color : `${color}cc`)
+      .attr("stroke", "#0f172a")
+      .attr("stroke-width", 2);
+
+    // Probability labels
+    points.append("text")
+      .attr("y", -10)
+      .attr("text-anchor", "middle")
+      .attr("fill", color)
+      .attr("font-size", "9px")
+      .attr("font-weight", "600")
+      .attr("font-family", "var(--font-data)")
+      .text((d) => `${pctStr(d.midProbability as number, 1)}%`);
+
+    // X axis
+    g.append("g")
+      .attr("transform", `translate(0,${innerH})`)
+      .call(d3.axisBottom(xScale).tickSize(0))
+      .call((g) => g.select(".domain").remove())
+      .call((g) => g.selectAll(".tick text").attr("fill", "#9ca3af").attr("font-size", "9px").attr("dy", 12));
+
+    // Y axis
+    g.append("g")
+      .call(d3.axisLeft(yScale).ticks(5).tickFormat((d) => `${pctStr(d as number, 0)}%`))
+      .call((g) => g.select(".domain").remove())
+      .call((g) => g.selectAll(".tick line").attr("stroke", "#374151").attr("stroke-opacity", 0.4))
+      .call((g) => g.selectAll(".tick text").attr("fill", "#9ca3af").attr("font-size", "9px"));
+
+    // Legend
+    const legend = g.append("g").attr("transform", `translate(${innerW - 160}, -12)`);
+    const legendItems = [
+      { label: "Observed", stroke: color, dash: "", fill: "" },
+      { label: "Scenario", stroke: `${color}60`, dash: "4,3", fill: "" },
+      { label: "Uncertainty", stroke: "none", dash: "", fill: `${color}15` },
+    ];
+    legendItems.forEach((item, i) => {
+      const lx = i * 56;
+      if (item.fill) {
+        legend.append("rect").attr("x", lx).attr("y", 0).attr("width", 12).attr("height", 6).attr("fill", item.fill).attr("rx", 1);
+      } else {
+        legend.append("line").attr("x1", lx).attr("x2", lx + 12).attr("y1", 3).attr("y2", 3).attr("stroke", item.stroke).attr("stroke-width", 1.5).attr("stroke-dasharray", item.dash);
+      }
+      legend.append("text").attr("x", lx + 16).attr("y", 5).attr("fill", "#64748b").attr("font-size", "7px").attr("font-family", "var(--font-data)").text(item.label);
+    });
+
+    // Hover interaction
+    const overlay = g.append("rect")
+      .attr("width", innerW)
+      .attr("height", innerH)
+      .attr("fill", "transparent")
+      .attr("cursor", "crosshair");
+
+    const focusLine = g.append("line")
+      .attr("stroke", "#475569")
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "2,2")
+      .style("opacity", 0);
+
+    const focusDot = g.append("circle")
+      .attr("r", 5)
+      .attr("fill", color)
+      .attr("stroke", "#0f172a")
+      .attr("stroke-width", 2)
+      .style("opacity", 0);
+
+    overlay.on("mousemove", (event) => {
+      const [mx] = d3.pointer(event);
+      // Find nearest horizon by x position
+      let nearest: HorizonPoint | null = null;
+      let minDist = Infinity;
+      for (const d of sorted) {
+        const hx = xScale(formatHorizon(d.horizonMinutes)) ?? 0;
+        const dist = Math.abs(mx - hx);
+        if (dist < minDist) { minDist = dist; nearest = d; }
+      }
+      if (!nearest || nearest.midProbability === null) return;
+
+      const cx = xScale(formatHorizon(nearest.horizonMinutes)) ?? 0;
+      const cy = yScale(nearest.midProbability);
+
+      focusLine.attr("x1", cx).attr("x2", cx).attr("y1", 0).attr("y2", innerH).style("opacity", 1);
+      focusDot.attr("cx", cx).attr("cy", cy).style("opacity", 1);
+
+      if (tooltipRef.current) {
+        tooltipRef.current.style.opacity = "1";
+        tooltipRef.current.style.left = `${margin.left + cx + 12}px`;
+        tooltipRef.current.style.top = `${margin.top + cy - 10}px`;
+        tooltipRef.current.innerHTML = [
+          `<div style="font-weight:600;margin-bottom:3px">${asset} · ${formatHorizon(nearest.horizonMinutes)}</div>`,
+          `<div style="color:${color}">UP Probability</div>`,
+          `<div style="font-size:11px;font-weight:700">${pctStr(nearest.midProbability, 1)}%</div>`,
+          nearest.bidProbability !== null ? `<div>Bid ${pctStr(nearest.bidProbability, 1)}%</div>` : "",
+          nearest.askProbability !== null ? `<div>Ask ${pctStr(nearest.askProbability, 1)}%</div>` : "",
+          `<div>Mid ${pctStr(nearest.midProbability, 1)}%</div>`,
+        ].filter(Boolean).join("");
+      }
+    });
+
+    overlay.on("mouseleave", () => {
+      focusLine.style("opacity", 0);
+      focusDot.style("opacity", 0);
+      if (tooltipRef.current) tooltipRef.current.style.opacity = "0";
+    });
+
+  }, [horizons, color, selectedHorizon, forecastProjections, asset]);
+
+  useEffect(() => { drawChart(); }, [drawChart]);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <svg ref={svgRef} width="100%" viewBox="0 0 560 300" style={{ display: "block" }} />
+      <div
+        ref={tooltipRef}
+        style={{
+          position: "absolute",
+          pointerEvents: "none",
+          opacity: 0,
+          transition: "opacity 0.15s",
+          background: "rgba(9,9,11,0.95)",
+          border: "1px solid var(--border-hover)",
+          borderRadius: 4,
+          padding: "6px 10px",
+          fontFamily: "var(--font-data)",
+          fontSize: 10,
+          color: "var(--text-primary)",
+          lineHeight: 1.5,
+          zIndex: 10,
+          whiteSpace: "nowrap",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+        }}
+      />
     </div>
   );
 }
