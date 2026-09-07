@@ -149,7 +149,7 @@ function ThesisTracker({ address }: { address: string }) {
               if (downProb < entryDown * 0.7) status = "invalidated";
               else if (downProb < entryDown * 0.9) status = "weakening";
             }
-            results.push({ thesis, currentState: t.state, stateLabel: t.stateLabel, currentProbability: currentProb, confidence: t.confidence, reversalRisk: t.reversalRisk, status });
+            results.push({ thesis, currentState: t.state ?? "unknown", stateLabel: t.stateLabel ?? "Unknown", currentProbability: currentProb, confidence: t.confidence ?? 0, reversalRisk: t.reversalRisk ?? 0, status });
           }
         } catch { /* skip */ }
       }
@@ -233,7 +233,7 @@ function ThesisTracker({ address }: { address: string }) {
                         color: s.thesis.direction === "up" ? "var(--accent)" : "var(--accent-secondary)",
                       }}
                     >
-                      {s.thesis.direction.toUpperCase()}
+                      {(s.thesis.direction ?? "up").toUpperCase()}
                     </span>
                     <span
                       style={{
@@ -278,7 +278,7 @@ function ThesisTracker({ address }: { address: string }) {
                     label="ENTRY THESIS"
                     metrics={[
                       { label: "Probability", value: `${pctStr(s.thesis.entryProbability, 1)}%` },
-                      { label: "Regime", value: s.thesis.stateLabel.toUpperCase(), color: stateColor(s.thesis.state) },
+                      { label: "Regime", value: (s.thesis.stateLabel ?? "Unknown").toUpperCase(), color: stateColor(s.thesis.state ?? "unknown") },
                       { label: "Confidence", value: "—" },
                       { label: "Rev Risk", value: "—" },
                     ]}
@@ -303,7 +303,7 @@ function ThesisTracker({ address }: { address: string }) {
                     label="CURRENT THESIS"
                     metrics={[
                       { label: "Probability", value: `${pctStr(s.currentProbability, 1)}%`, color: delta > 0 ? "var(--accent)" : delta < 0 ? "var(--accent-secondary)" : "var(--text-primary)" },
-                      { label: "Regime", value: s.stateLabel.toUpperCase(), color: stateColor(s.currentState) },
+                      { label: "Regime", value: (s.stateLabel ?? "Unknown").toUpperCase(), color: stateColor(s.currentState ?? "unknown") },
                       { label: "Delta", value: ppStr(deltaPp, 1), color: deltaPp > 0 ? "var(--accent)" : deltaPp < 0 ? "var(--accent-secondary)" : "var(--text-secondary)" },
                       { label: "Status", value: thesisLabel, color: labelStyle.color },
                     ]}
