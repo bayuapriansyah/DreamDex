@@ -324,17 +324,27 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface ChatResponse {
+  explanation: AIExplanation;
+  source: "ai" | "deterministic" | "fallback-error";
+  error?: string;
+}
+
 export async function generateChatResponse(
   trajectory: TrajectoryInput,
   messages: ChatMessage[]
-): Promise<AIExplanation> {
+): Promise<ChatResponse> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
 
   const hasData = trajectory.horizons.some((h) => h.midProbability !== null);
 
   if (!apiKey) {
-    return generateDeterministicFallback(trajectory, lastUserMsg?.content);
+    return {
+      explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
+      source: "deterministic",
+      error: "NO_API_KEY",
+    };
   }
 
   const horizonStr = sortByHorizon(trajectory.horizons)
@@ -374,7 +384,7 @@ WHY: ${trajectory.why}`
       "X-Title": "Horizon Copilot",
     },
     body: JSON.stringify({
-      model: "mistralai/mistral-7b-instruct:free",
+      model: OPENROUTER_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         ...chatHistory,
@@ -385,23 +395,35 @@ WHY: ${trajectory.why}`
   });
 
   if (!res.ok) {
-    return generateDeterministicFallback(trajectory, lastUserMsg?.content);
+    const errBody = await res.text().catch(() => "unknown");
+    return {
+      explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
+      source: "fallback-error",
+      error: `OPENROUTER_${res.status}: ${errBody.slice(0, 200)}`,
+    };
   }
 
   const data = await res.json();
   const answer = data.choices?.[0]?.message?.content;
 
   if (!answer) {
-    return generateDeterministicFallback(trajectory, lastUserMsg?.content);
+    return {
+      explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
+      source: "fallback-error",
+      error: "EMPTY_ANSWER",
+    };
   }
 
   const parsed = parseAIResponse(answer, trajectory, lastUserMsg?.content);
-  if (parsed) return parsed;
+  if (parsed) return { explanation: parsed, source: "ai" };
 
   return {
-    summary: answer,
-    keyEvidence: trajectory.evidence.slice(0, 3),
-    uncertainty: "AI-generated response — verify with market data.",
-    invalidation: `Monitor ${trajectory.asset} probability levels and orderbook dynamics.`,
+    explanation: {
+      summary: answer,
+      keyEvidence: trajectory.evidence.slice(0, 3),
+      uncertainty: "AI-generated response — verify with market data.",
+      invalidation: `Monitor ${trajectory.asset} probability levels and orderbook dynamics.`,
+    },
+    source: "ai",
   };
 }

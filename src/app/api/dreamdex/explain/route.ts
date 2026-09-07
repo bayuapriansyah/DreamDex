@@ -68,14 +68,16 @@ export async function POST(request: NextRequest) {
     );
     const decisionContext = buildDecisionContext(trajectory);
 
-    const explanation = await generateChatResponse(
+    const chatResult = await generateChatResponse(
       trajectory as unknown as Parameters<typeof generateChatResponse>[0],
       messages
     );
 
     return NextResponse.json({
       ok: true,
-      explanation,
+      explanation: chatResult.explanation,
+      source: chatResult.source,
+      aiError: chatResult.error || null,
       decisionContext,
       trajectory,
       timestamp: new Date().toISOString(),
