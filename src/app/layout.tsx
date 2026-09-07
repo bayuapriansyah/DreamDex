@@ -11,6 +11,11 @@ export const metadata: Metadata = {
   title: "Horizon — Temporal Intelligence for Event Contracts",
   description:
     "Transform DreamDEX Event Contracts into a real-time trajectory of market conviction across time horizons.",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
