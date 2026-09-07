@@ -355,7 +355,7 @@ export async function generateChatResponse(
     .join(", ");
 
   const systemPrompt = hasData
-    ? `You are Horizon Copilot, a market intelligence analyst for prediction markets. Answer the user's question concisely using the data below. Be direct. Reference actual numbers. If the user sends a greeting or casual message, respond conversationally in 1-2 sentences and briefly mention the current market state. Don't force analysis.
+    ? `You are Horizon Copilot, a market intelligence analyst for prediction markets. Answer the user's question concisely using the data below. Be direct. Reference actual numbers. If the user sends a greeting or casual message, respond conversationally in 1-2 sentences and briefly mention the current market state. Don't force analysis. ALWAYS respond in the same language the user writes in. If the user writes in English, respond in English. If they write in Indonesian, respond in Indonesian. Never respond in Chinese unless the user writes in Chinese.
 
 ASSET: ${trajectory.asset}
 STATE: ${trajectory.stateLabel}

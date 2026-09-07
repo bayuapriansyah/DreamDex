@@ -89,13 +89,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
           id: `a-${Date.now()}`,
           role: "assistant",
           content: data.ok
-            ? data.explanation.summary +
-              (data.explanation.keyEvidence?.length
-                ? "\n\n" + data.explanation.keyEvidence.map((e: string) => `• ${e}`).join("\n")
-                : "") +
-              (data.explanation.uncertainty
-                ? "\n\n⚠ " + data.explanation.uncertainty
-                : "")
+            ? data.explanation.summary
             : data.error || "Failed to get response.",
           timestamp: Date.now(),
         };
