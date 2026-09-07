@@ -8,7 +8,7 @@ import { stateColor, statusBadge, pctStr, ppStr } from "@/lib/dreamdex/formattin
 interface Thesis {
   id: string;
   asset: string;
-  side: "up" | "down";
+  direction: "up" | "down";
   horizon: number;
   entryProbability: number;
   thesis: string;
@@ -54,7 +54,7 @@ function deriveThesisStatus(s: ThesisStatus): "STRENGTHENING" | "WEAKENING" | "U
   if (s.status === "invalidated") return "INVALIDATED";
   if (s.status === "weakening") return "WEAKENING";
   const delta = s.currentProbability - s.thesis.entryProbability;
-  const isUp = s.thesis.side === "up";
+  const isUp = s.thesis.direction === "up";
   const effectiveDelta = isUp ? delta : -delta;
   if (effectiveDelta > 0.02) return "STRENGTHENING";
   if (effectiveDelta < -0.02) return "WEAKENING";
@@ -140,7 +140,7 @@ function ThesisTracker({ address }: { address: string }) {
             const relevantHorizon = t.horizons.find((h: { horizonMinutes: number }) => h.horizonMinutes === thesis.horizon);
             const currentProb = relevantHorizon ? relevantHorizon.midProbability : thesis.entryProbability;
             let status: "active" | "weakening" | "invalidated" = "active";
-            if (thesis.side === "up") {
+            if (thesis.direction === "up") {
               if (currentProb < thesis.entryProbability * 0.7) status = "invalidated";
               else if (currentProb < thesis.entryProbability * 0.9) status = "weakening";
             } else {
@@ -200,7 +200,7 @@ function ThesisTracker({ address }: { address: string }) {
             const delta = s.currentProbability - s.thesis.entryProbability;
             const thesisLabel = deriveThesisStatus(s);
             const labelStyle = thesisStatusLabel(thesisLabel);
-            const deltaPp = s.thesis.side === "up" ? delta : -delta;
+            const deltaPp = s.thesis.direction === "up" ? delta : -delta;
 
             return (
               <div
@@ -230,10 +230,10 @@ function ThesisTracker({ address }: { address: string }) {
                         fontSize: 11,
                         fontFamily: "var(--font-data)",
                         fontWeight: 600,
-                        color: s.thesis.side === "up" ? "var(--accent)" : "var(--accent-secondary)",
+                        color: s.thesis.direction === "up" ? "var(--accent)" : "var(--accent-secondary)",
                       }}
                     >
-                      {s.thesis.side.toUpperCase()}
+                      {s.thesis.direction.toUpperCase()}
                     </span>
                     <span
                       style={{

@@ -30,24 +30,19 @@ function readThesisJson<T>(wallet: string, suffix: string): Record<string, T> {
 /* ═══════════════════════════════════════════════════════ */
 
 interface ThesisEntry {
-  positionId: string;
-  marketId: string;
+  id: string;
   asset: string;
-  horizon: number;
   direction: "up" | "down";
+  horizon: number;
   entryProbability: number;
-  entryTimestamp: string;
-  regime: string;
-  signalStrength: number;
+  thesis: string;
+  state: string;
+  stateLabel: string;
   signalConfidence: number;
   reversalRisk: number;
-  divergence: number;
-  persistence: number;
-  velocity: number;
-  dataQuality: number;
-  analysisSnapshot: string;
-  trajectoryState: string;
   trajectoryScore: number;
+  trajectoryState: string;
+  createdAt: string;
 }
 
 interface ComparisonEntry {
@@ -626,7 +621,7 @@ export default function PortfolioPage() {
             >
               {activeTheses.map((thesis, idx) => {
                 const thesisComparison = positions.find(
-                  (p) => p.id === thesis.positionId
+                  (p) => p.id === thesis.id
                 )?.comparison;
                 const thesisStatus =
                   thesisComparison?.status ?? "unchanged";
@@ -636,7 +631,7 @@ export default function PortfolioPage() {
 
                 return (
                   <div
-                    key={thesis.positionId}
+                    key={thesis.id}
                     className="card animate-fade-up"
                     style={{
                       padding: 24,

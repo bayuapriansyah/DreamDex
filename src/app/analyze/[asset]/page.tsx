@@ -1076,43 +1076,27 @@ function StrategyComposer({
       const data = await res.json();
       setTradeResult(data);
       if (data.ok && data.hash) {
-        // Save entry thesis snapshot to localStorage (client-side)
-        const entryThesis = {
-          positionId: `pos-${data.hash}-0`,
-          marketId: targetHorizon.marketId,
+        const fillPrice = data.averagePrice ?? active.maxEntryPrice;
+        const thesisEntry = {
+          id: `pos-${data.hash}-0`,
           asset,
-          horizon: active.suggestedHorizon,
           direction: active.side as "up" | "down",
-          entryProbability: active.maxEntryPrice,
-          entryTimestamp: new Date().toISOString(),
-          regime: trajectory.state,
-          signalStrength: trajectory.trajectoryScore,
+          horizon: active.suggestedHorizon,
+          entryProbability: fillPrice,
+          thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,
+          state: trajectory.state,
+          stateLabel: trajectory.state,
           signalConfidence: trajectory.confidence,
           reversalRisk: trajectory.reversalRisk,
-          divergence: trajectory.metrics.crossHorizonDivergence,
-          persistence: trajectory.metrics.persistence,
-          velocity: trajectory.metrics.velocityPerHour,
-          dataQuality: trajectory.metrics.dataQuality,
-          analysisSnapshot: JSON.stringify({ trajectory, decisionCtx }),
-          trajectoryState: trajectory.state,
           trajectoryScore: trajectory.trajectoryScore,
+          trajectoryState: trajectory.state,
+          createdAt: new Date().toISOString(),
         };
         try {
           if (address) {
             const short = address.toLowerCase().slice(0, 10);
             const key = `dreamdex-${short}-thesis-monitor`;
             const existing: unknown[] = JSON.parse(localStorage.getItem(key) || "[]");
-            const thesisEntry = {
-              id: entryThesis.positionId,
-              asset: entryThesis.asset,
-              direction: entryThesis.direction,
-              horizon: entryThesis.horizon,
-              entryProbability: entryThesis.entryProbability,
-              thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,
-              state: entryThesis.trajectoryState,
-              stateLabel: entryThesis.trajectoryState,
-              createdAt: entryThesis.entryTimestamp,
-            };
             existing.push(thesisEntry);
             localStorage.setItem(key, JSON.stringify(existing));
           }
