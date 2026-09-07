@@ -69,8 +69,6 @@ function signalColor(state: string): string {
   return "var(--text-secondary)";
 }
 
-const ASSETS = ["BTC", "ETH"];
-
 export default function ComparePage() {
   return (
     <Suspense
@@ -94,6 +92,7 @@ function CompareContent() {
 
   const [assetA, setAssetA] = useState(initialA);
   const [assetB, setAssetB] = useState(initialB);
+  const [availableAssets, setAvailableAssets] = useState<string[]>(["BTC", "ETH"]);
   const [dataA, setDataA] = useState<MarketData | null>(null);
   const [dataB, setDataB] = useState<MarketData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +122,18 @@ function CompareContent() {
     } catch {
       return null;
     }
+  }, []);
+
+  // Discover available assets
+  useEffect(() => {
+    fetch("/api/dreamdex/markets")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && Object.keys(d.grouped || {}).length > 0) {
+          setAvailableAssets(Object.keys(d.grouped));
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -255,7 +266,7 @@ function CompareContent() {
             flex: 1,
           }}
         >
-          {ASSETS.map((a) => (
+          {availableAssets.map((a) => (
             <option key={a} value={a}>{a} / USD</option>
           ))}
         </select>
@@ -292,7 +303,7 @@ function CompareContent() {
             flex: 1,
           }}
         >
-          {ASSETS.map((a) => (
+          {availableAssets.map((a) => (
             <option key={a} value={a}>{a} / USD</option>
           ))}
         </select>

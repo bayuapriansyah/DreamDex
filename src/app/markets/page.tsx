@@ -113,7 +113,12 @@ export default function MarketsPage() {
     fetchedRef.current = false;
     async function load() {
       try {
-        const assets = ["BTC", "ETH"];
+        // Dynamic asset discovery from markets API
+        const marketsRes = await fetch("/api/dreamdex/markets");
+        if (!marketsRes.ok) throw new Error(`HTTP ${marketsRes.status}`);
+        const marketsData = await marketsRes.json();
+        const assets: string[] = marketsData.ok ? Object.keys(marketsData.grouped || {}) : ["BTC", "ETH"];
+
         const results: MarketTemporal[] = [];
         for (const asset of assets) {
           const res = await fetch(`/api/dreamdex/temporal?asset=${asset}`);

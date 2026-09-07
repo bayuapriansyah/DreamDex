@@ -38,6 +38,7 @@ function saveSnapshots(snapshots: Snapshot[]) {
 
 export default function ReplayPage() {
   const [asset, setAsset] = useState("BTC");
+  const [availableAssets, setAvailableAssets] = useState<string[]>(["BTC", "ETH"]);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,6 +56,18 @@ export default function ReplayPage() {
   useEffect(() => {
     saveSnapshots(snapshots);
   }, [snapshots]);
+
+  // Discover available assets from markets API
+  useEffect(() => {
+    fetch("/api/dreamdex/markets")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.ok && Object.keys(d.grouped || {}).length > 0) {
+          setAvailableAssets(Object.keys(d.grouped));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const collectSnapshot = useCallback(async () => {
     try {
@@ -130,7 +143,7 @@ export default function ReplayPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {["BTC", "ETH"].map((a) => (
+          {availableAssets.map((a) => (
             <button
               key={a}
               onClick={() => { setAsset(a); setSnapshots([]); }}

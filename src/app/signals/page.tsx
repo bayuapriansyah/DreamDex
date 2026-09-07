@@ -104,7 +104,18 @@ export default function SignalsPage() {
 
   const fetchSignals = useCallback(async () => {
     try {
-      const assets = ["BTC", "ETH"];
+      // Dynamic asset discovery
+      let assets: string[] = ["BTC", "ETH"];
+      try {
+        const marketsRes = await fetch("/api/dreamdex/markets");
+        if (marketsRes.ok) {
+          const marketsData = await marketsRes.json();
+          if (marketsData.ok && Object.keys(marketsData.grouped || {}).length > 0) {
+            assets = Object.keys(marketsData.grouped);
+          }
+        }
+      } catch { /* fallback to BTC, ETH */ }
+
       const results: SignalResult[] = [];
       for (const asset of assets) {
         const res = await fetch(`/api/dreamdex/temporal?asset=${asset}`);

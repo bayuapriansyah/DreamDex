@@ -79,7 +79,11 @@ export default function Home() {
     fetchedRef.current = false;
     async function load() {
       try {
-        const assets = ["BTC", "ETH"];
+        const marketsRes = await fetch("/api/dreamdex/markets");
+        if (!marketsRes.ok) throw new Error(`HTTP ${marketsRes.status}`);
+        const marketsData = await marketsRes.json();
+        const assets: string[] = marketsData.ok ? Object.keys(marketsData.grouped || {}) : ["BTC", "ETH"];
+
         const results: AssetPulse[] = [];
         for (const asset of assets) {
           const res = await fetch(`/api/dreamdex/temporal?asset=${asset}`);
