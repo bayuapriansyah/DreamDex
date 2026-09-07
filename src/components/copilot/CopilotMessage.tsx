@@ -19,57 +19,76 @@ export function CopilotMessage({ message }: { message: Message }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 3,
+        gap: 4,
         alignItems: isUser ? "flex-end" : "flex-start",
       }}
     >
-      {/* Role label */}
+      {/* Role label + timestamp */}
       <div
         style={{
-          fontFamily: "var(--font-data)",
-          fontSize: 9,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: isUser ? "var(--text-tertiary)" : "var(--accent)",
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
           padding: "0 2px",
         }}
       >
-        {isUser ? "You" : "Copilot"}
+        {!isUser && (
+          <div
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: "50%",
+              background: "var(--accent)",
+              flexShrink: 0,
+            }}
+          />
+        )}
+        <span
+          style={{
+            fontFamily: "var(--font-data)",
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: isUser ? "var(--text-tertiary)" : "var(--accent)",
+          }}
+        >
+          {isUser ? "You" : "Copilot"}
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-data)",
+            fontSize: 8,
+            color: "var(--text-tertiary)",
+            opacity: 0.5,
+          }}
+        >
+          {time}
+        </span>
       </div>
 
       {/* Bubble */}
       <div
         style={{
-          maxWidth: "90%",
+          maxWidth: "88%",
           padding: "8px 10px",
-          borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px",
+          borderRadius: isUser
+            ? "var(--radius-md) var(--radius-md) 2px var(--radius-md)"
+            : "var(--radius-md) var(--radius-md) var(--radius-md) 2px",
           background: isUser
-            ? "rgba(255, 255, 255, 0.06)"
-            : "rgba(245, 158, 11, 0.08)",
+            ? "var(--surface-3)"
+            : "rgba(245, 158, 11, 0.06)",
           border: `1px solid ${
-            isUser ? "rgba(255, 255, 255, 0.08)" : "rgba(245, 158, 11, 0.15)"
+            isUser ? "var(--border)" : "rgba(245, 158, 11, 0.12)"
           }`,
           fontFamily: "var(--font-body)",
           fontSize: 12,
-          lineHeight: 1.55,
+          lineHeight: 1.6,
           color: "var(--text-primary)",
           wordBreak: "break-word",
         }}
       >
         {message.content}
-      </div>
-
-      {/* Timestamp */}
-      <div
-        style={{
-          fontFamily: "var(--font-data)",
-          fontSize: 8,
-          color: "var(--text-tertiary)",
-          padding: "0 2px",
-          opacity: 0.6,
-        }}
-      >
-        {time}
       </div>
     </div>
   );

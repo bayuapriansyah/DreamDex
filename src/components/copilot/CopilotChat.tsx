@@ -142,25 +142,26 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
               disabled={loading}
               style={{
                 padding: "4px 8px",
-                borderRadius: 9999,
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "var(--radius-full)",
+                background: "var(--surface-3)",
+                border: "1px solid var(--border)",
                 color: "var(--text-secondary)",
                 fontFamily: "var(--font-data)",
                 fontSize: 9,
+                fontWeight: 600,
                 cursor: loading ? "wait" : "pointer",
-                transition: "all 150ms ease",
+                transition: "all var(--duration-normal) var(--ease-out)",
                 whiteSpace: "nowrap",
                 lineHeight: 1.4,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "rgba(245,158,11,0.08)";
-                e.currentTarget.style.borderColor = "rgba(245,158,11,0.2)";
+                e.currentTarget.style.background = "var(--accent-muted)";
+                e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.2)";
                 e.currentTarget.style.color = "var(--accent)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                e.currentTarget.style.background = "var(--surface-3)";
+                e.currentTarget.style.borderColor = "var(--border)";
                 e.currentTarget.style.color = "var(--text-secondary)";
               }}
             >
@@ -179,10 +180,10 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",
-          gap: 10,
+          gap: 12,
           padding: "4px 0",
           scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.1) transparent",
+          scrollbarColor: "var(--surface-4) transparent",
         }}
       >
         {messages.length === 0 && !loading && (
@@ -192,22 +193,33 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              padding: "20px 0",
+              padding: "24px 0",
             }}
           >
-            <p
-              style={{
-                fontFamily: "var(--font-data)",
-                fontSize: 10,
-                color: "var(--text-tertiary)",
-                textAlign: "center",
-                lineHeight: 1.5,
-              }}
-            >
-              Ask about {asset} trajectory,
-              <br />
-              conviction, or market state.
-            </p>
+            <div style={{ textAlign: "center" }}>
+              <div
+                style={{
+                  fontFamily: "var(--font-data)",
+                  fontSize: 18,
+                  marginBottom: 6,
+                  opacity: 0.3,
+                }}
+              >
+                ◈
+              </div>
+              <p
+                style={{
+                  fontFamily: "var(--font-data)",
+                  fontSize: 10,
+                  color: "var(--text-tertiary)",
+                  lineHeight: 1.6,
+                }}
+              >
+                Ask about {asset} trajectory,
+                <br />
+                conviction, or market state.
+              </p>
+            </div>
           </div>
         )}
 
@@ -219,10 +231,20 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
           <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 0" }}>
             <div
               style={{
+                width: 5,
+                height: 5,
+                borderRadius: "50%",
+                background: "var(--accent)",
+                flexShrink: 0,
+              }}
+            />
+            <div
+              style={{
                 fontFamily: "var(--font-data)",
                 fontSize: 9,
+                fontWeight: 700,
                 color: "var(--accent)",
-                letterSpacing: "0.06em",
+                letterSpacing: "0.1em",
               }}
             >
               THINKING
@@ -232,8 +254,8 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
                 <div
                   key={i}
                   style={{
-                    width: 4,
-                    height: 4,
+                    width: 3,
+                    height: 3,
                     borderRadius: "50%",
                     background: "var(--accent)",
                     opacity: 0.4,
@@ -254,7 +276,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
           display: "flex",
           gap: 6,
           padding: "8px 0 0",
-          borderTop: "1px solid rgba(255,255,255,0.06)",
+          borderTop: "1px solid var(--border)",
           marginTop: 8,
         }}
       >
@@ -270,20 +292,20 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
             flex: 1,
             height: 32,
             padding: "0 10px",
-            borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(255,255,255,0.03)",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid var(--border)",
+            background: "var(--surface-2)",
             color: "var(--text-primary)",
             fontFamily: "var(--font-body)",
             fontSize: 11,
             outline: "none",
-            transition: "border-color 150ms ease",
+            transition: "border-color var(--duration-normal) var(--ease-out)",
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = "rgba(245,158,11,0.3)";
+            e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+            e.currentTarget.style.borderColor = "var(--border)";
           }}
         />
         <button
@@ -292,12 +314,12 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
           style={{
             width: 32,
             height: 32,
-            borderRadius: 8,
-            border: "none",
+            borderRadius: "var(--radius-sm)",
+            border: "1px solid",
+            borderColor:
+              loading || !input.trim() ? "var(--border)" : "rgba(245, 158, 11, 0.2)",
             background:
-              loading || !input.trim()
-                ? "rgba(255,255,255,0.04)"
-                : "rgba(245,158,11,0.15)",
+              loading || !input.trim() ? "var(--surface-2)" : "var(--accent-muted)",
             color:
               loading || !input.trim()
                 ? "var(--text-tertiary)"
@@ -306,7 +328,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            transition: "all 150ms ease",
+            transition: "all var(--duration-normal) var(--ease-out)",
             flexShrink: 0,
           }}
         >
@@ -335,26 +357,28 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
             inputRef.current?.focus();
           }}
           style={{
-            marginTop: 4,
+            marginTop: 6,
             background: "none",
             border: "none",
             color: "var(--text-tertiary)",
             cursor: "pointer",
             fontFamily: "var(--font-data)",
             fontSize: 9,
+            fontWeight: 600,
             textAlign: "center",
-            padding: 2,
-            opacity: 0.6,
-            transition: "opacity 150ms ease",
+            padding: 4,
+            opacity: 0.5,
+            transition: "opacity var(--duration-normal) var(--ease-out)",
+            letterSpacing: "0.04em",
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.opacity = "1";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = "0.6";
+            e.currentTarget.style.opacity = "0.5";
           }}
         >
-          Clear conversation
+          CLEAR CONVERSATION
         </button>
       )}
     </div>
