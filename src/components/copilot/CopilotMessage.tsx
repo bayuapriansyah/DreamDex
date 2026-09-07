@@ -38,7 +38,7 @@ export function CopilotMessage({ message }: { message: Message }) {
               width: 5,
               height: 5,
               borderRadius: "50%",
-              background: "var(--accent)",
+              background: "var(--accent-secondary)",
               flexShrink: 0,
             }}
           />
@@ -50,7 +50,7 @@ export function CopilotMessage({ message }: { message: Message }) {
             fontWeight: 700,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
-            color: isUser ? "var(--text-tertiary)" : "var(--accent)",
+            color: isUser ? "var(--text-tertiary)" : "var(--accent-secondary)",
           }}
         >
           {isUser ? "You" : "Copilot"}
@@ -77,9 +77,9 @@ export function CopilotMessage({ message }: { message: Message }) {
             : "var(--radius-md) var(--radius-md) var(--radius-md) 2px",
           background: isUser
             ? "var(--surface-3)"
-            : "rgba(245, 158, 11, 0.06)",
+            : "var(--accent-secondary-muted)",
           border: `1px solid ${
-            isUser ? "var(--border)" : "rgba(245, 158, 11, 0.12)"
+            isUser ? "var(--border)" : "rgba(56, 189, 248, 0.12)"
           }`,
           fontFamily: "var(--font-body)",
           fontSize: 12,

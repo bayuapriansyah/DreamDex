@@ -155,9 +155,9 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
                 lineHeight: 1.4,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = "var(--accent-muted)";
-                e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.2)";
-                e.currentTarget.style.color = "var(--accent)";
+                e.currentTarget.style.background = "var(--accent-secondary-muted)";
+                e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.2)";
+                e.currentTarget.style.color = "var(--accent-secondary)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "var(--surface-3)";
@@ -234,7 +234,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
                 width: 5,
                 height: 5,
                 borderRadius: "50%",
-                background: "var(--accent)",
+                background: "var(--accent-secondary)",
                 flexShrink: 0,
               }}
             />
@@ -243,7 +243,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
                 fontFamily: "var(--font-data)",
                 fontSize: 9,
                 fontWeight: 700,
-                color: "var(--accent)",
+                color: "var(--accent-secondary)",
                 letterSpacing: "0.1em",
               }}
             >
@@ -257,7 +257,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
                     width: 3,
                     height: 3,
                     borderRadius: "50%",
-                    background: "var(--accent)",
+                    background: "var(--accent-secondary)",
                     opacity: 0.4,
                     animation: `pulse 1.2s ease-in-out ${i * 0.2}s infinite`,
                   }}
@@ -302,7 +302,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
             transition: "border-color var(--duration-normal) var(--ease-out)",
           }}
           onFocus={(e) => {
-            e.currentTarget.style.borderColor = "rgba(245, 158, 11, 0.3)";
+            e.currentTarget.style.borderColor = "rgba(56, 189, 248, 0.3)";
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = "var(--border)";
@@ -317,13 +317,13 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
             borderRadius: "var(--radius-sm)",
             border: "1px solid",
             borderColor:
-              loading || !input.trim() ? "var(--border)" : "rgba(245, 158, 11, 0.2)",
+              loading || !input.trim() ? "var(--border)" : "rgba(56, 189, 248, 0.2)",
             background:
-              loading || !input.trim() ? "var(--surface-2)" : "var(--accent-muted)",
+              loading || !input.trim() ? "var(--surface-2)" : "var(--accent-secondary-muted)",
             color:
               loading || !input.trim()
                 ? "var(--text-tertiary)"
-                : "var(--accent)",
+                : "var(--accent-secondary)",
             cursor: loading || !input.trim() ? "not-allowed" : "pointer",
             display: "flex",
             alignItems: "center",
