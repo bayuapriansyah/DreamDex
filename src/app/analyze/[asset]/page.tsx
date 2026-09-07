@@ -1227,7 +1227,7 @@ function StrategyComposer({
         </TabsContent>
       </Tabs>
 
-      {effectiveSide !== "hold" && !suppressTrade ? (
+      {effectiveSide !== "hold" && active.side !== "hold" && !suppressTrade ? (
         <div style={{ marginTop: 10 }} className="space-y-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
