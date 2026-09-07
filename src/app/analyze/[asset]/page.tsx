@@ -7,7 +7,7 @@ import * as d3 from "d3";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ForecastCone } from "@/components/charts/ForecastCone";
-import { SuggestedPrompts } from "@/components/copilot/SuggestedPrompts";
+
 import { OrderbookPanel } from "@/components/markets/OrderbookPanel";
 import { stateColor, probColor, formatHorizon, formatProb, formatVelocity, pctStr, pctNum, ppStr } from "@/lib/dreamdex/formatting";
 import type { DecisionContext } from "@/lib/dreamdex/decision";
@@ -572,8 +572,6 @@ export default function AnalyzePage() {
             </SectionCard>
           )}
 
-          {/* TEMPORAL COPILOT */}
-           <AIExplanation asset={asset} state={state} confidence={decisionCtx?.decisionQuality?.confidence ?? 0} />
         </div>
 
         {/* ── RIGHT STICKY RAIL ── */}
@@ -588,10 +586,10 @@ export default function AnalyzePage() {
           {/* STRATEGY COMPOSER — now in right column */}
           <StrategyComposer trajectory={trajectory} asset={asset} decisionCtx={decisionCtx} />
 
-          {/* ORDERBOOK */}
-          <div style={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
-            <OrderbookPanel symbol={asset} />
-          </div>
+
+
+          {/* ORDERBOOK — collapsible */}
+          <CollapsibleOrderbook asset={asset} />
         </div>
       </div>
     </div>
@@ -1391,118 +1389,53 @@ function StrategyComposer({
   );
 }
 
+
+
 /* ═══════════════════════════════════════════════════════ */
-/* AIExplanation — TEMPORAL COPILOT                       */
+/* CollapsibleOrderbook — toggle orderbook visibility       */
 /* ═══════════════════════════════════════════════════════ */
 
-function AIExplanation({ asset, state, confidence }: { asset: string; state: string; confidence: number }) {
-  const [explanation, setExplanation] = useState<{
-    summary: string;
-    keyEvidence: string[];
-    uncertainty: string;
-    invalidation: string;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const fetchedRef = useRef(false);
-  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
-
-  const loadExplanation = useCallback(async (question?: string) => {
-    setLoading(true);
-    try {
-      const url = question
-        ? `/api/dreamdex/explain?asset=${asset}&question=${encodeURIComponent(question)}`
-        : `/api/dreamdex/explain?asset=${asset}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      if (!fetchedRef.current && data.ok && data.explanation) {
-        setExplanation(data.explanation);
-      }
-    } catch {
-      // silent
-    } finally {
-      if (!fetchedRef.current) setLoading(false);
-    }
-  }, [asset]);
-
-  useEffect(() => {
-    fetchedRef.current = false;
-    void loadExplanation();
-    return () => { fetchedRef.current = true; };
-  }, [loadExplanation]);
-
-  function handleSelectQuestion(question: string) {
-    setSelectedQuestion(question);
-    void loadExplanation(question);
-  }
+function CollapsibleOrderbook({ asset }: { asset: string }) {
+  const [open, setOpen] = useState(false);
 
   return (
-    <SectionCard
-      label="Temporal Copilot"
-      badge={
-        <span style={{ fontFamily: "var(--font-data)", fontSize: 11, color: loading ? "var(--text-tertiary)" : explanation ? "var(--accent)" : "var(--text-secondary)", padding: "2px 8px", background: explanation ? "rgba(245,158,11,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${explanation ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.08)"}`, borderRadius: 4 }}>
-          {loading ? "Loading..." : explanation ? "AI-Enhanced" : "Deterministic"}
+    <div style={{ background: "var(--surface-1)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "10px 14px",
+          background: open ? "rgba(255,255,255,0.02)" : "transparent",
+          border: "none",
+          cursor: "pointer",
+          borderBottom: open ? "1px solid var(--border)" : "none",
+        }}
+      >
+        <span style={{ fontFamily: "var(--font-data)", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--text-tertiary)" }}>
+          Orderbook
         </span>
-      }
-    >
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <div className="skeleton" style={{ height: 14, width: "75%", borderRadius: 6 }} />
-          <div className="skeleton" style={{ height: 14, width: "50%", borderRadius: 6 }} />
-          <div className="skeleton" style={{ height: 14, width: "62%", borderRadius: 6 }} />
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ color: "var(--text-tertiary)", transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 200ms ease" }}
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div style={{ padding: 0 }}>
+          <OrderbookPanel symbol={asset} />
         </div>
-      ) : explanation ? (
-        <div>
-          <SuggestedPrompts
-            asset={asset}
-            state={state}
-            confidence={confidence}
-            onSelect={handleSelectQuestion}
-          />
-          {selectedQuestion && (
-            <div style={{ padding: "8px 12px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)", borderRadius: 8, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: "var(--font-data)", fontSize: 11, color: "var(--accent)", letterSpacing: "0.06em" }}>QUESTION:</span>
-              <span style={{ fontFamily: "var(--font-body)", fontSize: 13, color: "var(--text-primary)" }}>{selectedQuestion}</span>
-              <button
-                onClick={() => { setSelectedQuestion(null); void loadExplanation(); }}
-                style={{
-                  marginLeft: "auto",
-                  background: "none",
-                  border: "none",
-                  color: "var(--text-tertiary)",
-                  cursor: "pointer",
-                  fontSize: 13,
-                  fontFamily: "var(--font-data)",
-                  padding: "2px 6px",
-                }}
-              >
-                Clear
-              </button>
-            </div>
-          )}
-          <p style={{ fontFamily: "var(--font-body)", fontSize: 14, lineHeight: 1.6, color: "var(--text-primary)", marginBottom: 16 }}>{explanation.summary}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-            {explanation.keyEvidence.map((e, i) => (
-              <div key={i} style={{ display: "flex", gap: 10, padding: "8px 12px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8 }}>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: 12, color: "var(--accent)", marginTop: 1, flexShrink: 0 }}>•</span>
-                <span style={{ fontFamily: "var(--font-data)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{e}</span>
-              </div>
-            ))}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {[
-              { title: "Uncertainty", text: explanation.uncertainty },
-              { title: "Invalidation", text: explanation.invalidation },
-            ].map((block) => (
-              <div key={block.title} style={{ padding: "12px 14px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10 }}>
-                <div style={{ fontFamily: "var(--font-data)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-tertiary)", marginBottom: 6 }}>{block.title}</div>
-                <p style={{ fontFamily: "var(--font-data)", fontSize: 13, lineHeight: 1.5, color: "var(--text-secondary)" }}>{block.text}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p style={{ fontFamily: "var(--font-body)", fontSize: 14, color: "var(--text-secondary)" }}>AI unavailable. See deterministic analysis above.</p>
       )}
-    </SectionCard>
+    </div>
   );
 }

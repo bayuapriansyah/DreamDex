@@ -6,6 +6,7 @@ import "./globals.css";
 import { WagmiProvider } from "@/components/providers/WagmiProvider";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { GlobalCopilot } from "@/components/copilot/GlobalCopilot";
 
 export const metadata: Metadata = {
   title: "Horizon — Temporal Intelligence for Event Contracts",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <Header />
           <main className="flex-1">{children}</main>
           <Footer />
+          <GlobalCopilot />
         </WagmiProvider>
       </body>
     </html>
