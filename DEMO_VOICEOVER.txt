@@ -1,11 +1,15 @@
-DreamDEX gives traders a probability. Will BTC be up or down? But that number alone doesn't tell a story. Horizon is a temporal intelligence layer that turns that isolated probability into a trajectory of market conviction — moving through time.
+Hello guys, let me show you Horizon — a temporal intelligence layer for DreamDEX Event Contracts.
 
-Here on the Market Explorer, each asset shows real-time probability across multiple horizons — 5 minutes, 1 hour, 4 hours — with a trajectory state, confidence score, and reversal risk. Traders can see at a glance whether conviction is accelerating, decaying, or reversing.
+Right now, DreamDEX gives you a number. Will BTC be up or down? But that number alone doesn't tell you the story. Horizon turns that isolated probability into a trajectory of market conviction — moving through time.
 
-The Analyze page is the heart of Horizon. The market regime is named plainly — like Bearish Decay. Evidence explains why — velocity, persistence, cross-horizon behavior. Map the Next Hour shows a heuristic forecast. The Strategy Composer turns analysis into action — Conservative, Balanced, Aggressive — each with suggested direction and size. Click Execute, and a real order goes to DreamDEX on Somnia Shannon testnet.
+Here in Market Explorer, you can see BTC across multiple horizons — 5 minute, 1 hour, 4 hours. Each one shows the probability, trajectory state, confidence, and reversal risk. So you see not just the number, but how conviction is moving.
 
-The Thesis Tracker closes the loop. Every trade stores its entry thesis — the market conditions at the moment it was placed — and compares it continuously against live data. Is the thesis strengthening, weakening, or unchanged? This isn't just position tracking. It's tracking whether your reason for entering still holds.
+Click Analyze and here's the core. The market regime is named plainly — like Bearish Decay. Evidence explains why — velocity, persistence, cross-horizon behavior. Map the Next Hour shows where conviction might be headed. The Strategy Composer turns analysis into action — Conservative, Balanced, Aggressive — each with suggested direction and size. Pick one, click Execute, real trade on DreamDEX testnet.
 
-The Portfolio shows open positions with entry and current status, active theses with confidence and reversal risk, and any resolved trades ready to claim on-chain.
+Every trade stores its entry thesis — the market conditions when you entered. The Thesis Tracker compares that against live data. Is it strengthening, weakening, or unchanged? That's the feedback loop.
 
-DreamDEX gives traders a number. Horizon gives them the trajectory — how conviction moves through time, why it's moving, and what to do with that information. Horizon — trade the trajectory.
+Portfolio shows your open positions, active theses, and anything ready to claim on-chain.
+
+Coming next: historical replay, scenario branching, and state transitions — so traders can plan, not just react.
+
+DreamDEX gives you a number. Horizon gives you the trajectory. Trade the trajectory.
