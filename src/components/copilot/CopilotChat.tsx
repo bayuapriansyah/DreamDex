@@ -88,7 +88,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
         const aiMsg: Message = {
           id: `a-${Date.now()}`,
           role: "assistant",
-          content: (data.ok
+          content: data.ok
             ? data.explanation.summary +
               (data.explanation.keyEvidence?.length
                 ? "\n\n" + data.explanation.keyEvidence.map((e: string) => `• ${e}`).join("\n")
