@@ -2,6 +2,7 @@
 import type { BinaryMarket } from "@somnia-chain/markets-sdk";
 import { getExchange } from "./client";
 import { normalizeLastPrice, normalizeQuoteVolume } from "./normalization";
+import { ADDRESSES } from "./config";
 import type { Probability, QuoteVolume, HorizonMinutes, MarketLifecycle } from "./types";
 
 /* ═══════════════════════════════════════════════════════ */
@@ -192,6 +193,140 @@ function deduplicateByCadence(markets: MarketData[]): MarketData[] {
 }
 
 /* ═══════════════════════════════════════════════════════ */
+/* Chain-Log Fallback (indexer down)                       */
+/* ═══════════════════════════════════════════════════════ */
+
+/**
+ * MarketCreated event ABI for chain-log discovery.
+ * 13-field MarketCreator event (indexed: marketId, market, pool).
+ */
+const MARKET_CREATED_ABI = [
+  {
+    type: "event" as const,
+    name: "MarketCreated",
+    inputs: [
+      { name: "marketId", type: "bytes32", indexed: true },
+      { name: "market", type: "address", indexed: true },
+      { name: "pool", type: "address", indexed: true },
+      { name: "yesId", type: "uint256", indexed: false },
+      { name: "noId", type: "uint256", indexed: false },
+      { name: "collateral", type: "address", indexed: false },
+      { name: "asset", type: "string", indexed: false },
+      { name: "strike", type: "uint256", indexed: false },
+      { name: "tradingStart", type: "uint64", indexed: false },
+      { name: "expiry", type: "uint64", indexed: false },
+      { name: "oracleQuestionId", type: "uint256", indexed: false },
+      { name: "question", type: "string", indexed: false },
+      { name: "intervalSec", type: "uint64", indexed: false },
+    ],
+  },
+] as const;
+
+/**
+ * Fallback market discovery using chain logs when the indexer is down.
+ * Scans MarketCreated events from the MarketCreator factory contract.
+ * Limited to last ~40,000 blocks (~1 day on Somnia).
+ */
+async function discoverFromChainLogs(): Promise<MarketData[]> {
+  const exchange = getExchange();
+  const publicClient = exchange.client.getViemClient();
+  const now = Math.floor(Date.now() / 1000);
+  const capturedAt = Date.now();
+
+  const marketCreatorAddress = ADDRESSES.marketCreator as `0x${string}`;
+  if (!marketCreatorAddress) {
+    console.warn("[discoverFromChainLogs] No marketCreator address configured");
+    return [];
+  }
+
+  try {
+    // Scan last 40,000 blocks for MarketCreated events
+    const latestBlock = await publicClient.getBlockNumber();
+    const fortyK = BigInt(40000);
+    const fromBlock = latestBlock > fortyK ? latestBlock - fortyK : BigInt(0);
+
+    const logs = await publicClient.getLogs({
+      address: marketCreatorAddress,
+      event: MARKET_CREATED_ABI[0],
+      fromBlock,
+      toBlock: "latest",
+    });
+
+    console.log(`[discoverFromChainLogs] Found ${logs.length} MarketCreated events`);
+
+    const candidates: MarketData[] = [];
+
+    for (const log of logs) {
+      try {
+        const args = log.args;
+        if (!args) continue;
+
+        const asset = args.asset;
+        const intervalSec = Number(args.intervalSec);
+        const expiry = Number(args.expiry);
+
+        // Filter by collateral (must be testUsdc)
+        const collateral = args.collateral?.toLowerCase();
+        const expectedCollateral = ADDRESSES.collateral?.toLowerCase() ?? ADDRESSES.testUsdc?.toLowerCase();
+        if (collateral && expectedCollateral && collateral !== expectedCollateral) continue;
+
+        // Validate cadence
+        if (!EVENT_CONTRACT_CADENCES_SEC.some((c) => Math.abs(intervalSec - c) <= CADENCE_TOLERANCE_SEC)) continue;
+
+        // Skip expired markets
+        if (expiry - now < 60) continue;
+
+        // Get full market state from chain
+        let marketState: Awaited<ReturnType<typeof exchange.client.getMarketOnchain>> | null = null;
+        try {
+          marketState = await exchange.client.getMarketOnchain(args.marketId as `0x${string}`);
+        } catch {
+          continue; // Skip if we can't read market state
+        }
+
+        // Must be Trading status (MarketOnchain.status: 1 = Trading)
+        if (marketState.status !== 1) continue;
+        if (marketState.isVoided) continue;
+
+        const secondsLeft = expiry - now;
+        const quoteDecimals = marketState.decimals;
+
+        candidates.push({
+          asset: asset ?? "UNKNOWN",
+          horizonMinutes: (intervalSec / 60) as HorizonMinutes,
+          marketId: args.marketId as string,
+          pool: args.pool as string,
+          marketAddress: marketState.marketAddress,
+          expiry,
+          secondsLeft,
+          yesTokenId: args.yesId?.toString() ?? "0",
+          noTokenId: args.noId?.toString() ?? "0",
+          quoteDecimals,
+          lastPrice: null, // No lastPrice from chain-log fallback
+          volume: null, // No volume from chain-log fallback
+          status: "Trading" as MarketLifecycle,
+          intervalSec: intervalSec.toString(),
+          interval: null,
+          question: args.question ?? "",
+          mode: "reference",
+          strike: args.strike?.toString() ?? "0",
+          voided: false,
+          tradingStart: Number(args.tradingStart || 0),
+          capturedAt,
+        });
+      } catch {
+        // Skip market that fails processing
+      }
+    }
+
+    return deduplicateByCadence(candidates);
+  } catch (e) {
+    console.error("[discoverFromChainLogs] Chain-log fallback failed:", e);
+    return [];
+  }
+}
+
+/* ═══════════════════════════════════════════════════════ */
 /* Market Discovery                                       */
 /* ═══════════════════════════════════════════════════════ */
 
@@ -228,7 +363,14 @@ export async function discoverMarkets(retries: number = 2): Promise<MarketData[]
     }
   }
 
-  if (rawMarkets.length === 0) return [];
+  // Indexer failed — fall back to chain-log discovery
+  if (rawMarkets.length === 0) {
+    console.warn("[discoverMarkets] Indexer unavailable, falling back to chain-log discovery");
+    const fallback = await discoverFromChainLogs();
+    if (fallback.length > 0) return fallback;
+    console.error("[discoverMarkets] Chain-log fallback also returned empty");
+    return [];
+  }
 
   const candidates: MarketData[] = [];
 
