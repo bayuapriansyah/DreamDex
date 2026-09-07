@@ -2,13 +2,17 @@ Hello guys, let me show you Horizon — a temporal intelligence layer for DreamD
 
 Right now, DreamDEX gives you a number. Will BTC be up or down? But that number alone doesn't tell you the story. Horizon turns that isolated probability into a trajectory of market conviction — moving through time.
 
-Here in Market Explorer, you can see BTC across multiple horizons — 5 minute, 1 hour, 4 hours. Each one shows the probability, trajectory state, confidence, and reversal risk. So you see not just the number, but how conviction is moving.
+Let's walk through it end to end.
 
-Click Analyze and here's the core. The market regime is named plainly — like Bearish Decay. Evidence explains why — velocity, persistence, cross-horizon behavior. Map the Next Hour shows where conviction might be headed. The Strategy Composer turns analysis into action — Conservative, Balanced, Aggressive — each with suggested direction and size. Pick one, click Execute, real trade on DreamDEX testnet.
+We start at Market Explorer. You can see active assets like BTC across multiple horizons — 5 minute, 1 hour, 4 hours. Each card shows the live probability, a trajectory state, confidence score, and reversal risk. So at a glance, you know not just the number, but how conviction is behaving across time.
 
-Every trade stores its entry thesis — the market conditions when you entered. The Thesis Tracker compares that against live data. Is it strengthening, weakening, or unchanged? That's the feedback loop.
+When something catches your eye, click Analyze. This is the heart of Horizon. The market regime is named plainly — like Bearish Decay — meaning short-term conviction is positive but weakening the further out you look. Evidence explains why, walking through velocity, persistence, and cross-horizon behavior instead of asking you to just trust a label. Map the Next Hour gives you a heuristic forecast — not a guarantee, but a scenario of where conviction might be headed.
 
-Portfolio shows your open positions, active theses, and anything ready to claim on-chain.
+From there, the Strategy Composer turns analysis into something actionable. Three risk profiles — Conservative, Balanced, Aggressive — each with its own suggested direction, entry, and size. Pick one, click Execute Trade, and a real order goes straight to DreamDEX on Somnia Shannon testnet. On-chain, verifiable.
+
+Once the trade is placed, the Thesis Tracker kicks in. Every position stores its entry thesis — the market conditions at the exact moment you opened it. Then it compares that snapshot against live data, and tells you: is the thesis strengthening, weakening, or unchanged? This isn't just tracking your position. It's tracking whether your reason for entering still holds true.
+
+Portfolio ties everything together. Open positions, active theses with confidence and reversal risk, and any resolved trades ready to claim on-chain with one click.
 
 Coming next: historical replay, scenario branching, and state transitions — so traders can plan, not just react.
 
