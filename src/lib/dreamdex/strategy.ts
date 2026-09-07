@@ -4,6 +4,10 @@ import { pctStr } from "./formatting";
 
 export type StrategyType = "conservative" | "balanced" | "aggressive";
 
+/** Do not enter trades at extreme probabilities — poor risk/reward. */
+const PROB_FLOOR = 0.15;
+const PROB_CEILING = 0.85;
+
 export interface Strategy {
   type: StrategyType;
   label: string;
@@ -151,6 +155,31 @@ function determineSide(
   const isBearish =
     state.includes("bearish") || (avgProb < BEARISH_THRESHOLD && metrics.directionStrength > 0.2);
 
+  if (isBullish && avgProb < PROB_FLOOR) {
+    return {
+      side: "hold",
+      reasoning: `Probability ${(avgProb * 100).toFixed(1)}% too low — market strongly doubts this outcome. Wait for stronger conviction above ${(PROB_FLOOR * 100).toFixed(0)}%.`,
+    };
+  }
+  if (isBullish && avgProb > PROB_CEILING) {
+    return {
+      side: "hold",
+      reasoning: `Probability ${(avgProb * 100).toFixed(1)}% too high — poor risk/reward for new entry above ${(PROB_CEILING * 100).toFixed(0)}%.`,
+    };
+  }
+  if (isBearish && avgProb > 1 - PROB_FLOOR) {
+    return {
+      side: "hold",
+      reasoning: `Probability ${(avgProb * 100).toFixed(1)}% too high — market strongly favors this outcome. Wait for weaker conviction below ${((1 - PROB_FLOOR) * 100).toFixed(0)}%.`,
+    };
+  }
+  if (isBearish && avgProb < 1 - PROB_CEILING) {
+    return {
+      side: "hold",
+      reasoning: `Probability ${(avgProb * 100).toFixed(1)}% too low — poor risk/reward for new entry below ${((1 - PROB_CEILING) * 100).toFixed(0)}%.`,
+    };
+  }
+
   if (isBullish) {
     if (state === "bullish-decay" && config.riskTolerance < 0.5) {
       return {
@@ -227,12 +256,14 @@ function determineEntryPrice(
 
   if (side === "buy") {
     const maxAsk = target.askProbability ?? target.midProbability ?? 0.5;
+    if (maxAsk < PROB_FLOOR) return 0;
     const slippage = config.riskTolerance * 0.03;
-    return Math.min(maxAsk + slippage, 0.99);
+    return Math.min(maxAsk + slippage, PROB_CEILING);
   } else {
     const maxBid = target.bidProbability ?? target.midProbability ?? 0.5;
+    if (maxBid > 1 - PROB_FLOOR) return 0;
     const slippage = config.riskTolerance * 0.03;
-    return Math.max(maxBid - slippage, 0.01);
+    return Math.max(maxBid - slippage, 1 - PROB_CEILING);
   }
 }
 

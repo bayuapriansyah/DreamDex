@@ -294,8 +294,11 @@ function computeMetrics(horizons: HorizonProbability[]): TemporalMetrics {
     qualityScores.reduce((a, b) => a + b, 0) / (qualityScores.length || 1);
 
   // Direction strength: how far from 0.5 (neutral)
+  // Dampen at extremes — 2% prob doesn't mean "very bullish", it means "almost certain NOT to happen"
   const avgProb = probs.reduce((a, b) => a + b, 0) / (probs.length || 1);
-  const directionStrength = Math.abs(avgProb - 0.5) * 2;
+  const rawDirection = Math.abs(avgProb - 0.5) * 2;
+  const extremePenalty = avgProb < 0.15 || avgProb > 0.85 ? 0.3 : 1.0;
+  const directionStrength = rawDirection * extremePenalty;
 
   // Momentum: rate of change of probability
   const momentum = computeMomentum(sorted);
@@ -337,8 +340,15 @@ function computeConvictionDecay(sorted: HorizonProbability[]): number {
   const shortProb = sorted[0].midProbability as number;
   const longProb = sorted[sorted.length - 1].midProbability as number;
 
-  // Positive = conviction grows, Negative = conviction decays
-  return longProb - shortProb;
+  const rawDecay = longProb - shortProb;
+
+  // At extreme probabilities, large raw differences are misleading
+  // A jump from 1% to 70% is extreme cross-horizon disagreement, not bullish acceleration
+  const avgProb = (shortProb + longProb) / 2;
+  if (avgProb < 0.15 || avgProb > 0.85) {
+    return rawDecay * 0.3;
+  }
+  return rawDecay;
 }
 
 function computeCrossHorizonDivergence(sorted: HorizonProbability[]): number {

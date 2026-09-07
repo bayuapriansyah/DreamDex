@@ -1040,8 +1040,20 @@ function StrategyComposer({
 
   // Actionability: use deterministic actionability from DecisionContext
   const actionability = decisionCtx?.actionability ?? "low";
+
+  // Average probability from trajectory — used for trade suppression
+  const avgProb = useMemo(() => {
+    const valid = trajectory.horizons.filter((h) => h.midProbability !== null);
+    if (valid.length === 0) return 0.5;
+    return valid.reduce((a, h) => a + (h.midProbability as number), 0) / valid.length;
+  }, [trajectory.horizons]);
+
   const suppressTrade = (selected === "conservative" && actionability !== "high")
-    || (selected === "balanced" && actionability === "low");
+    || (selected === "balanced" && actionability === "low")
+    || avgProb < 0.15
+    || avgProb > 0.85
+    || trajectory.state === "insufficient-data"
+    || trajectory.state === "cross-horizon-conflict";
 
   // Effective side: override or auto
   const effectiveSide: "buy" | "sell" | "hold" = overrideSide === "auto"

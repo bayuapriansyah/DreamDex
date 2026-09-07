@@ -197,8 +197,17 @@ function computeActionability(
 ): "high" | "medium" | "low" {
   const { confidence, reversalRisk, trajectoryScore } = trajectory;
 
-  // Horizon agreement
+  // Average probability from valid horizons
   const valid = trajectory.horizons.filter((h) => h.midProbability !== null);
+  let avgProb = 0.5;
+  if (valid.length > 0) {
+    avgProb = valid.reduce((a, h) => a + (h.midProbability as number), 0) / valid.length;
+  }
+
+  // Penalize extreme probabilities — trades at 1-15% or 85-99% have poor risk/reward
+  const probPenalty = avgProb < 0.15 || avgProb > 0.85 ? 0.3 : 1.0;
+
+  // Horizon agreement
   let horizonAgreement = 0;
   if (valid.length >= 2) {
     const sorted = valid.sort((a, b) => a.horizonMinutes - b.horizonMinutes);
@@ -213,7 +222,7 @@ function computeActionability(
   const score =
     confidence * 0.25 +
     (1 - reversalRisk) * 0.25 +
-    trajectoryScore * 0.2 +
+    trajectoryScore * 0.2 * probPenalty +
     horizonAgreement * 0.15 +
     quality.dataQuality * 0.15;
 

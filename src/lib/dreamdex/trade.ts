@@ -70,6 +70,20 @@ export async function executeTrade(params: {
     };
   }
 
+  // Strategic range check — prevent extreme-probability entries with poor risk/reward
+  const MIN_STRATEGIC = 0.10;
+  const MAX_STRATEGIC = 0.90;
+  if (params.price < MIN_STRATEGIC || params.price > MAX_STRATEGIC) {
+    return {
+      ok: false,
+      error: `Entry at ${(params.price * 100).toFixed(1)}% is outside the strategic range (${(MIN_STRATEGIC * 100)}%–${(MAX_STRATEGIC * 100)}%). Market strongly ${params.price < MIN_STRATEGIC ? "doubts" : "favors"} this outcome — risk/reward is unfavorable.`,
+      errorCode: "PRICE_OUT_OF_STRATEGIC_RANGE",
+      executor: "demo-testnet-server",
+      disclaimer: DISCLAIMER,
+      state: "preflight-failed",
+    };
+  }
+
   const result = await executeOrder({
     marketRef: ref,
     side: params.side,

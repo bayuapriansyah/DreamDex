@@ -170,6 +170,20 @@ export function TradeClient() {
 
   async function handleTrade() {
     if (!selectedMarket || !amount || !price) return;
+
+    // Client-side strategic range check
+    const priceVal = parseFloat(price);
+    if (priceVal < 0.15 || priceVal > 0.85) {
+      setResult({
+        ok: false,
+        error: `Entry at ${(priceVal * 100).toFixed(1)}% is outside the recommended range (15%–85%). Market strongly ${priceVal < 0.15 ? "doubts" : "favors"} this outcome — risk/reward is unfavorable.`,
+        executor: "demo-testnet-server",
+        disclaimer: "",
+        state: "preflight-failed",
+      });
+      return;
+    }
+
     setLoading(true);
     setResult(null);
     setExecState("validating");
