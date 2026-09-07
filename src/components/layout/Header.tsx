@@ -70,6 +70,7 @@ export function Header() {
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [walletModalOpen, setWalletModalOpen] = useState(false);
 
   const walletMenuRef = useRef<HTMLDivElement>(null);
   const portfolioRef = useRef<HTMLDivElement>(null);
@@ -488,7 +489,7 @@ export function Header() {
               {mounted && !isConnected && (
                 <button
                   type="button"
-                  onClick={() => connect({ connector: connectors[0] })}
+                  onClick={() => setWalletModalOpen(true)}
                   disabled={isPending}
                   style={{
                     height: 36,
@@ -733,7 +734,7 @@ export function Header() {
           ) : mounted ? (
             <button
               type="button"
-              onClick={() => { connect({ connector: connectors[0] }); closeDrawer(); }}
+              onClick={() => { setWalletModalOpen(true); closeDrawer(); }}
               disabled={isPending}
               style={{
                 width: "100%",
@@ -754,6 +755,165 @@ export function Header() {
           ) : null}
         </div>
       </div>
+
+      {/* ═══ Wallet Connect Modal ═══ */}
+      {walletModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.7)",
+            backdropFilter: "blur(8px)",
+          }}
+          onClick={() => setWalletModalOpen(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#121316",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 16,
+              padding: 24,
+              width: 340,
+              maxWidth: "90vw",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "1rem", color: "#fff" }}>
+                Connect Wallet
+              </div>
+              <button
+                type="button"
+                onClick={() => setWalletModalOpen(false)}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: 0,
+                  padding: 6,
+                  borderRadius: "50%",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.6)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <line x1="3" y1="3" x2="13" y2="13" />
+                  <line x1="13" y1="3" x2="3" y2="13" />
+                </svg>
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* MetaMask */}
+              <button
+                type="button"
+                onClick={() => {
+                  const injectedConnector = connectors.find((c) => c.id === "injected" || c.name === "Injected");
+                  if (injectedConnector) {
+                    connect({ connector: injectedConnector });
+                    setWalletModalOpen(false);
+                  } else {
+                    window.open("https://metamask.io/download/", "_blank");
+                  }
+                }}
+                disabled={isPending}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "12px 16px",
+                  borderRadius: 12,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  color: "#fff",
+                  fontSize: "0.85rem",
+                  fontFamily: "var(--font-body)",
+                  fontWeight: 500,
+                }}
+              >
+                <svg width="28" height="28" viewBox="0 0 35 33" fill="none">
+                  <path d="M32.4 1L19.2 10.9l2.4-9.1L32.4 1z" fill="#E2761B" stroke="#E2761B" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2.6 1l13 9.9-2.1-9.4L2.6 1zM30.1 23.5l-3.2 4.9 6.9 1.9 2-6.6-5.7-.2zM1.2 23.7l2-6.6-6.9-1.9 3.2 4.9-.3 3.6z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12.4 14.8l-2.1 3.2 7.5.3-.3-8.1-5.1 4.6zM29.8 14.8l-5.2-4.7-.2 8.2 7.6-.3-2.2-3.2z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M12.8 28.4l4.5-2.2-3.9-3-.6 5.2zM22.8 26.2l-4.5-2.2.6-5.2 3.9 3z" fill="#E4761B" stroke="#E4761B" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                MetaMask
+              </button>
+
+              {/* WalletConnect */}
+              {connectors.some((c) => c.id === "walletConnect") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const wcConnector = connectors.find((c) => c.id === "walletConnect");
+                    if (wcConnector) {
+                      connect({ connector: wcConnector });
+                      setWalletModalOpen(false);
+                    }
+                  }}
+                  disabled={isPending}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "12px 16px",
+                    borderRadius: 12,
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease",
+                    color: "#fff",
+                    fontSize: "0.85rem",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: 500,
+                  }}
+                >
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <circle cx="14" cy="14" r="14" fill="#3B99FC"/>
+                    <path d="M9.5 11.5C11.4 9.6 14.5 9.6 16.4 11.5L16.9 11C15.5 9.6 13 9.6 11.6 11L12.1 11.5C13.2 10.4 15 10.4 16.1 11.5L16.6 11C15 9.4 12.5 9.4 10.9 11L9.5 11.5ZM8 13.3C8 11.2 10 9.5 12.7 9.5C15.4 9.5 17.4 11.2 17.4 13.3L17.9 15.5C17.9 17.6 15.9 19.3 13.2 19.3C10.5 19.3 8.5 17.6 8.5 15.5L8 13.3ZM11 14.2C11 13.5 11.8 13 12.8 13C13.8 13 14.6 13.5 14.6 14.2C14.6 15 13.8 15.5 12.8 15.5C11.8 15.5 11 15 11 14.2Z" fill="white"/>
+                  </svg>
+                  WalletConnect
+                </button>
+              )}
+
+              {/* Download MetaMask fallback */}
+              {!connectors.some((c) => c.id === "injected" || c.name === "Injected") && (
+                <a
+                  href="https://metamask.io/download/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    padding: "10px 16px",
+                    borderRadius: 12,
+                    background: "rgba(234,179,8,0.12)",
+                    border: "1px solid rgba(234,179,8,0.3)",
+                    color: "#eab308",
+                    fontSize: "0.78rem",
+                    fontFamily: "var(--font-body)",
+                    fontWeight: 500,
+                    textDecoration: "none",
+                    transition: "all 0.15s ease",
+                  }}
+                >
+                  Install MetaMask to continue
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
