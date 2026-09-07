@@ -1098,12 +1098,22 @@ function StrategyComposer({
           trajectoryScore: trajectory.trajectoryScore,
         };
         try {
-          // Save to localStorage (wallet-scoped)
           if (address) {
             const short = address.toLowerCase().slice(0, 10);
-            const key = `dreamdex-${short}-theses`;
-            const existing = JSON.parse(localStorage.getItem(key) || "{}");
-            existing[entryThesis.positionId] = entryThesis;
+            const key = `dreamdex-${short}-thesis-monitor`;
+            const existing: unknown[] = JSON.parse(localStorage.getItem(key) || "[]");
+            const thesisEntry = {
+              id: entryThesis.positionId,
+              asset: entryThesis.asset,
+              side: entryThesis.direction,
+              horizon: entryThesis.horizon,
+              entryProbability: entryThesis.entryProbability,
+              thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,
+              state: entryThesis.trajectoryState,
+              stateLabel: entryThesis.trajectoryState,
+              createdAt: entryThesis.entryTimestamp,
+            };
+            existing.push(thesisEntry);
             localStorage.setItem(key, JSON.stringify(existing));
           }
         } catch {
