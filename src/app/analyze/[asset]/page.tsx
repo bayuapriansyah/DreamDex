@@ -1027,7 +1027,7 @@ function StrategyComposer({
   const { address } = useAccount();
   const [selected, setSelected] = useState<StrategyType>("balanced");
   const [executing, setExecuting] = useState(false);
-  const [tradeResult, setTradeResult] = useState<{ ok: boolean; hash?: string; error?: string; errorCode?: string; orderId?: string; orderStatus?: string; state?: string } | null>(null);
+  const [tradeResult, setTradeResult] = useState<{ ok: boolean; hash?: string; error?: string; errorCode?: string; orderId?: string; orderStatus?: string; state?: string; progress?: Array<{ state: string; message: string; ts: number }> } | null>(null);
 
   const strategies = useMemo(() => {
     if (decisionCtx?.strategies) return decisionCtx.strategies;
@@ -1044,6 +1044,14 @@ function StrategyComposer({
 
   async function executeTrade() {
     if (active.side === "hold") return;
+    if (!active.maxEntryPrice || active.maxEntryPrice <= 0 || active.maxEntryPrice > 1) {
+      setTradeResult({ ok: false, error: "Invalid entry price." });
+      return;
+    }
+    if (!active.suggestedSize || active.suggestedSize <= 0) {
+      setTradeResult({ ok: false, error: "Invalid trade size." });
+      return;
+    }
     setExecuting(true);
     setTradeResult(null);
     try {
@@ -1057,7 +1065,8 @@ function StrategyComposer({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol: targetHorizon.marketId,
+          marketId: targetHorizon.marketId,
+          symbol: asset,
           side: active.side,
           amount: active.suggestedSize,
           price: active.maxEntryPrice,
@@ -1267,6 +1276,13 @@ function StrategyComposer({
                   {tradeResult.errorCode && (
                     <div style={{ fontSize: 9, color: "var(--text-secondary)", marginTop: 2 }}>
                       CODE: {tradeResult.errorCode}
+                    </div>
+                  )}
+                  {tradeResult.progress && tradeResult.progress.length > 0 && (
+                    <div style={{ fontSize: 9, color: "var(--text-tertiary)", marginTop: 4, borderTop: "1px solid var(--border)", paddingTop: 4 }}>
+                      {tradeResult.progress.map((p: { state: string; message: string }, i: number) => (
+                        <div key={i}>{p.state}: {p.message}</div>
+                      ))}
                     </div>
                   )}
                 </div>

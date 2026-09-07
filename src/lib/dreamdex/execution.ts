@@ -102,7 +102,16 @@ export async function preflightOrder(params: {
 
   try {
     if (Object.keys(exchange.markets).length === 0) {
-      await exchange.loadMarkets();
+      // Retry up to 3 times with backoff for cold starts
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          await exchange.loadMarkets();
+          if (Object.keys(exchange.markets).length > 0) break;
+        } catch (loadErr) {
+          if (attempt === 3) throw loadErr;
+          await new Promise((r) => setTimeout(r, attempt * 1000));
+        }
+      }
     }
 
     // 1. Resolve market
@@ -145,6 +154,28 @@ export async function preflightOrder(params: {
           binaryMarket = bm;
           break;
         }
+      }
+    }
+
+    if (!symbol || !binaryMarket) {
+      // Retry once after re-loading markets (cold start race condition)
+      try {
+        await exchange.loadMarkets();
+        const retryKeys = Object.keys(exchange.markets);
+        for (const s of retryKeys) {
+          const um = exchange.markets[s];
+          if (!um) continue;
+          const bm = um.info as unknown as BinaryMarket;
+          const poolMatch2 = bm.poolAddress?.toLowerCase() === params.marketId.toLowerCase();
+          const idMatch2 = bm.marketId?.toLowerCase() === params.marketId.toLowerCase();
+          if (poolMatch2 || idMatch2) {
+            symbol = s;
+            binaryMarket = bm;
+            break;
+          }
+        }
+      } catch {
+        // ignore retry errors
       }
     }
 
