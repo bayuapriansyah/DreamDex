@@ -85,10 +85,6 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
 
         const data = await res.json();
 
-        const debugTag = data.source === "ai" ? "" :
-          data.source === "deterministic" ? "\n\n[MODE: deterministic — no API key]" :
-          data.aiError ? `\n\n[MODE: fallback — ${data.aiError}]` : "";
-
         const aiMsg: Message = {
           id: `a-${Date.now()}`,
           role: "assistant",
@@ -100,7 +96,7 @@ export function CopilotChat({ asset, state, confidence }: CopilotChatProps) {
               (data.explanation.uncertainty
                 ? "\n\n⚠ " + data.explanation.uncertainty
                 : "")
-            : data.error || "Failed to get response.") + debugTag,
+            : data.error || "Failed to get response.",
           timestamp: Date.now(),
         };
 
