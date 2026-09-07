@@ -375,55 +375,66 @@ WHY: ${trajectory.why}`
     content: m.content,
   }));
 
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://horizon-dex.vercel.app",
-      "X-Title": "Horizon Copilot",
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...chatHistory,
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    }),
-  });
+  const models = [
+    OPENROUTER_MODEL,
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "minimax/minimax-m3:free",
+  ];
 
-  if (!res.ok) {
-    const errBody = await res.text().catch(() => "unknown");
+  let lastError = "";
+
+  for (const model of models) {
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": APP_URL,
+        "X-Title": "Horizon Copilot",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...chatHistory,
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "unknown");
+      lastError = `${model}: ${res.status} ${errBody.slice(0, 100)}`;
+      continue;
+    }
+
+    const data = await res.json();
+    const answer = data.choices?.[0]?.message?.content;
+
+    if (!answer) {
+      lastError = `${model}: empty answer`;
+      continue;
+    }
+
+    const parsed = parseAIResponse(answer, trajectory, lastUserMsg?.content);
+    if (parsed) return { explanation: parsed, source: "ai" };
+
     return {
-      explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
-      source: "fallback-error",
-      error: `OPENROUTER_${res.status}: ${errBody.slice(0, 200)}`,
+      explanation: {
+        summary: answer,
+        keyEvidence: trajectory.evidence.slice(0, 3),
+        uncertainty: "AI-generated response — verify with market data.",
+        invalidation: `Monitor ${trajectory.asset} probability levels and orderbook dynamics.`,
+      },
+      source: "ai",
     };
   }
-
-  const data = await res.json();
-  const answer = data.choices?.[0]?.message?.content;
-
-  if (!answer) {
-    return {
-      explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
-      source: "fallback-error",
-      error: "EMPTY_ANSWER",
-    };
-  }
-
-  const parsed = parseAIResponse(answer, trajectory, lastUserMsg?.content);
-  if (parsed) return { explanation: parsed, source: "ai" };
 
   return {
-    explanation: {
-      summary: answer,
-      keyEvidence: trajectory.evidence.slice(0, 3),
-      uncertainty: "AI-generated response — verify with market data.",
-      invalidation: `Monitor ${trajectory.asset} probability levels and orderbook dynamics.`,
-    },
-    source: "ai",
+    explanation: generateDeterministicFallback(trajectory, lastUserMsg?.content),
+    source: "fallback-error",
+    error: lastError,
   };
 }

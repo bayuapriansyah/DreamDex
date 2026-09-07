@@ -27,7 +27,7 @@ export const WS_RPC_URL = process.env.SOMNIA_WS_RPC_URL;
 
 // AI configuration — from environment
 export const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || "google/gemma-4-31b-it:free";
+  process.env.OPENROUTER_MODEL || "minimax/minimax-m3:free";
 export const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
