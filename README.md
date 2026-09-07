@@ -55,7 +55,7 @@ Horizon aggregates multiple rolling Event Contract horizons for the same asset a
 
 ### Connected to Action
 
-- **Strategy Composer** — Conservative / Balanced / Aggressive recommendations
+- **Strategy Composer** — Conservative / Balanced / Aggressive recommendations with optional manual direction override
 - **Trade Execution** — direct on-chain DreamDEX CLOB execution
 - **Position Tracking** — binary positions via `getPortfolio()`
 - **Entry Thesis** — capture analysis at entry, monitor for invalidation
@@ -87,6 +87,7 @@ Horizon aggregates multiple rolling Event Contract horizons for the same asset a
 | | Deterministic evidence & explanation | ✅ |
 | | What Changed breakdown | ✅ |
 | **Trading** | Strategy Composer (3 risk profiles) | ✅ |
+| | Direction Override (manual UP/DOWN toggle) | ✅ |
 | | DreamDEX on-chain execution | ✅ |
 | | Trade preview with entry, direction, sizing | ✅ |
 | | Orderbook depth visualization | ✅ |

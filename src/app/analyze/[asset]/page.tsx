@@ -1026,6 +1026,7 @@ function StrategyComposer({
 }) {
   const { address } = useAccount();
   const [selected, setSelected] = useState<StrategyType>("balanced");
+  const [overrideSide, setOverrideSide] = useState<"auto" | "up" | "down">("auto");
   const [executing, setExecuting] = useState(false);
   const [tradeResult, setTradeResult] = useState<{ ok: boolean; hash?: string; error?: string; errorCode?: string; orderId?: string; orderStatus?: string; state?: string; progress?: Array<{ state: string; message: string; ts: number }> } | null>(null);
 
@@ -1042,8 +1043,13 @@ function StrategyComposer({
   const suppressTrade = (selected === "conservative" && actionability !== "high")
     || (selected === "balanced" && actionability === "low");
 
+  // Effective side: override or auto
+  const effectiveSide: "buy" | "sell" | "hold" = overrideSide === "auto"
+    ? active.side
+    : overrideSide === "up" ? "buy" : "sell";
+
   async function executeTrade() {
-    if (active.side === "hold") return;
+    if (effectiveSide === "hold") return;
     if (!active.maxEntryPrice || active.maxEntryPrice <= 0 || active.maxEntryPrice > 1) {
       setTradeResult({ ok: false, error: "Invalid entry price." });
       return;
@@ -1067,7 +1073,7 @@ function StrategyComposer({
         body: JSON.stringify({
           marketId: targetHorizon.marketId,
           symbol: asset,
-          side: active.side,
+          side: effectiveSide,
           amount: active.suggestedSize,
           price: active.maxEntryPrice,
           type: "limit",
@@ -1080,7 +1086,7 @@ function StrategyComposer({
         const thesisEntry = {
           id: `pos-${data.hash}-0`,
           asset,
-          direction: active.side as "up" | "down",
+          direction: effectiveSide as "up" | "down",
           horizon: active.suggestedHorizon,
           entryProbability: fillPrice,
           thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,
@@ -1153,7 +1159,7 @@ function StrategyComposer({
         return null;
       })()}
 
-      <Tabs value={selected} onValueChange={(v: string) => setSelected(v as StrategyType)}>
+      <Tabs value={selected} onValueChange={(v: string) => { setSelected(v as StrategyType); setOverrideSide("auto"); }}>
         <TabsList className="h-8 w-full grid grid-cols-3">
           <TabsTrigger value="conservative" className="text-[11px] h-6">Conservative</TabsTrigger>
           <TabsTrigger value="balanced" className="text-[11px] h-6">Balanced</TabsTrigger>
@@ -1165,14 +1171,55 @@ function StrategyComposer({
           <div style={{ fontFamily: "var(--font-data)", fontSize: 13, padding: "6px 10px", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)" }}>
             {active.reasoning}
           </div>
+
+          {active.side !== "hold" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--border)", borderRadius: 4 }}>
+              <span style={{ fontFamily: "var(--font-data)", fontSize: 10, color: "var(--text-tertiary)" }}>DIRECTION:</span>
+              <span style={{
+                fontFamily: "var(--font-data)", fontSize: 10, fontWeight: 600,
+                color: overrideSide === "auto"
+                  ? (active.side === "buy" ? "var(--accent)" : "var(--accent-secondary)")
+                  : (overrideSide === "up" ? "var(--accent)" : "var(--accent-secondary)")
+              }}>
+                {overrideSide === "auto" ? (active.side === "buy" ? "UP" : "DOWN") : (overrideSide === "up" ? "UP" : "DOWN")}
+              </span>
+              {overrideSide !== "auto" && (
+                <span style={{ fontFamily: "var(--font-data)", fontSize: 9, color: "var(--accent-warn)" }}>(override)</span>
+              )}
+              <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                <button
+                  onClick={() => setOverrideSide(overrideSide === "up" ? "auto" : "up")}
+                  style={{
+                    fontFamily: "var(--font-data)", fontSize: 9, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                    background: overrideSide === "up" ? "rgba(34,197,94,0.15)" : "transparent",
+                    border: `1px solid ${overrideSide === "up" ? "rgba(34,197,94,0.3)" : "var(--border)"}`,
+                    color: overrideSide === "up" ? "var(--accent)" : "var(--text-tertiary)",
+                  }}
+                >
+                  ↑ UP
+                </button>
+                <button
+                  onClick={() => setOverrideSide(overrideSide === "down" ? "auto" : "down")}
+                  style={{
+                    fontFamily: "var(--font-data)", fontSize: 9, padding: "2px 6px", borderRadius: 3, cursor: "pointer",
+                    background: overrideSide === "down" ? "rgba(239,68,68,0.15)" : "transparent",
+                    border: `1px solid ${overrideSide === "down" ? "rgba(239,68,68,0.3)" : "var(--border)"}`,
+                    color: overrideSide === "down" ? "var(--accent-secondary)" : "var(--text-tertiary)",
+                  }}
+                >
+                  ↓ DOWN
+                </button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
-      {active.side !== "hold" && !suppressTrade ? (
+      {effectiveSide !== "hold" && !suppressTrade ? (
         <div style={{ marginTop: 10 }} className="space-y-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "Direction", value: active.side === "buy" ? "UP" : "DOWN", color: active.side === "buy" ? "var(--accent)" : "var(--accent-secondary)" },
+              { label: "Direction", value: effectiveSide === "buy" ? "UP" : "DOWN", color: effectiveSide === "buy" ? "var(--accent)" : "var(--accent-secondary)" },
               { label: "Entry", value: formatProb(active.maxEntryPrice) },
               { label: "Size", value: `${active.suggestedSize}` },
               { label: "Horizon", value: formatHorizon(active.suggestedHorizon) },
@@ -1191,7 +1238,7 @@ function StrategyComposer({
             </div>
             <div style={{ padding: "6px 8px", textAlign: "center", background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.2)", borderRadius: 6 }}>
               <div className="form-label" style={{ color: "var(--accent-secondary)" }}>Payout</div>
-              <div style={{ fontFamily: "var(--font-data)", fontSize: 13, fontWeight: 700, color: "var(--accent-secondary)" }}>{formatProb(active.side === "buy" ? 1 - active.maxEntryPrice : active.maxEntryPrice)}</div>
+              <div style={{ fontFamily: "var(--font-data)", fontSize: 13, fontWeight: 700, color: "var(--accent-secondary)" }}>{formatProb(effectiveSide === "buy" ? 1 - active.maxEntryPrice : active.maxEntryPrice)}</div>
             </div>
             <div style={{ padding: "6px 8px", textAlign: "center", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 6 }}>
               <div className="form-label">Confidence</div>
@@ -1298,7 +1345,7 @@ function StrategyComposer({
           >
             {executing
               ? "Executing Order..."
-              : `Execute Trade · ${active.side === "buy" ? "Buy Yes (Long)" : "Sell Yes (Short)"} @ ${formatProb(active.maxEntryPrice)}%`}
+              : `Execute Trade · ${effectiveSide === "buy" ? "Buy Yes (Long)" : "Sell Yes (Short)"} @ ${formatProb(active.maxEntryPrice)}%`}
           </button>
         </div>
       ) : suppressTrade ? (
@@ -1306,8 +1353,8 @@ function StrategyComposer({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
             <div style={{ padding: "6px 8px", textAlign: "center", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 3 }}>
               <div className="form-label" style={{ marginBottom: 2 }}>OBSERVED BIAS</div>
-              <div style={{ fontFamily: "var(--font-data)", fontSize: 14, fontWeight: 700, color: active.side === "buy" ? "var(--accent)" : active.side === "sell" ? "var(--accent-secondary)" : "var(--text-primary)" }}>
-                {active.side === "buy" ? "UP" : active.side === "sell" ? "DOWN" : "NEUTRAL"}
+              <div style={{ fontFamily: "var(--font-data)", fontSize: 14, fontWeight: 700, color: effectiveSide === "buy" ? "var(--accent)" : effectiveSide === "sell" ? "var(--accent-secondary)" : "var(--text-primary)" }}>
+                {effectiveSide === "buy" ? "UP" : effectiveSide === "sell" ? "DOWN" : "NEUTRAL"}
               </div>
             </div>
             <div style={{ padding: "6px 8px", textAlign: "center", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 3 }}>
