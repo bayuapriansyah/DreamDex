@@ -1105,7 +1105,7 @@ function StrategyComposer({
             const thesisEntry = {
               id: entryThesis.positionId,
               asset: entryThesis.asset,
-              side: entryThesis.direction,
+              direction: entryThesis.direction,
               horizon: entryThesis.horizon,
               entryProbability: entryThesis.entryProbability,
               thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,

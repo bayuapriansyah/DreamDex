@@ -155,9 +155,16 @@ export default function PortfolioPage() {
 
     function loadTheses() {
       if (!address) return;
-      const raw = readThesisJson<ThesisEntry>(address, "thesis-monitor");
-      const list = Object.values(raw);
-      setTheses(list);
+      try {
+        const raw = localStorage.getItem(walletKey(address, "thesis-monitor"));
+        if (!raw) { setTheses([]); return; }
+        const parsed = JSON.parse(raw);
+        // Handle both formats: array (new) and object (old)
+        const list = Array.isArray(parsed) ? parsed : Object.values(parsed);
+        setTheses(list as ThesisEntry[]);
+      } catch {
+        setTheses([]);
+      }
     }
 
     void load();
@@ -522,7 +529,7 @@ export default function PortfolioPage() {
                           fontSize: 10,
                         }}
                       >
-                        {pos.marketStatus.toUpperCase()}
+                        {pos.marketStatus?.toUpperCase() ?? "UNKNOWN"}
                       </span>
                     </div>
                   </div>
@@ -660,7 +667,7 @@ export default function PortfolioPage() {
                             letterSpacing: "0.04em",
                           }}
                         >
-                          {thesis.direction.toUpperCase()}
+                          {(thesis.direction ?? "up").toUpperCase()}
                         </span>
                         <span
                           style={{
