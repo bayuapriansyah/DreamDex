@@ -21,6 +21,7 @@ interface NavItem {
 const topNav: NavItem[] = [
   { href: "/markets", label: "Markets" },
   { href: "/analyze/BTC", label: "Analyze" },
+  { href: "/trade", label: "Trade" },
   { href: "/signals", label: "Signals" },
   { href: "/replay", label: "Replay" },
 ];
@@ -41,6 +42,7 @@ const mobileNavGroups: { label: string; items: NavItem[] }[] = [
     label: "Intelligence",
     items: [
       { href: "/analyze/BTC", label: "Analyze" },
+      { href: "/trade", label: "Trade" },
       { href: "/signals", label: "Signals" },
       { href: "/replay", label: "Replay" },
     ],
