@@ -102,7 +102,7 @@ Rules:
         body: JSON.stringify({
           model: GEMINI_MODEL,
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 500,
+          max_tokens: 1500,
           temperature: 0.3,
         }),
       }
@@ -375,6 +375,7 @@ WHY: ${trajectory.why}`
     GEMINI_MODEL,
     "gemini-2.5-flash-lite",
     "gemini-2.0-flash",
+    "gemini-3.5-flash",
   ];
 
   let lastError = "";
@@ -393,7 +394,7 @@ WHY: ${trajectory.why}`
           ...chatHistory,
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 1500,
       }),
     });
 
