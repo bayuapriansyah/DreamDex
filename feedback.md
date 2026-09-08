@@ -183,8 +183,6 @@ exchange.on("resolution", (event) => { ... })
 
 The SDK is production-quality with excellent architecture. The main gaps are in documentation (especially browser wallet integration and Event Contract mechanics) and error message clarity. The `setSigner()` pattern and `buildPlaceOrder()` API are particularly strong — they just need to be more visible to developers.
 
-**Rating:** 8/10 — solid SDK, needs better docs and error messages.
-
 ---
 
 *Feedback from Horizon — Somnia × DreamDEX Event Contracts Hackathon*
