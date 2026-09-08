@@ -4,10 +4,15 @@ import { executeTrade } from "@/lib/dreamdex/trade";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * Server-side trade execution endpoint.
+ * Used as fallback when browser wallet is not connected.
+ * When wallet is connected, trades execute client-side via executeTradeDirect().
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    console.log(`[TRADE] symbol=${body.symbol} marketId=${body.marketId} side=${body.side} amount=${body.amount} price=${body.price} type=${body.type}`);
+    console.log(`[TRADE API] symbol=${body.symbol} marketId=${body.marketId} side=${body.side} amount=${body.amount} price=${body.price} type=${body.type}`);
 
     const result = await executeTrade({
       symbol: body.symbol,
@@ -16,9 +21,10 @@ export async function POST(request: NextRequest) {
       amount: Number(body.amount),
       price: Number(body.price),
       type: body.type || "limit",
+      // No walletClient — server fallback uses demo executor
     });
 
-    console.log(`[TRADE] result: ok=${result.ok} state=${result.state} hash=${result.hash ?? "none"} error=${result.error ?? "none"}`);
+    console.log(`[TRADE API] result: ok=${result.ok} state=${result.state} executor=${result.executor} hash=${result.hash ?? "none"} error=${result.error ?? "none"}`);
 
     return NextResponse.json(result, {
       status: 200,

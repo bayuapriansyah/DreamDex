@@ -1,5 +1,6 @@
-// Server-side only — DreamDEX trade execution
-// LABEL: Demo/testnet executor. NOT signed by the user's wallet.
+// DreamDEX trade execution — hybrid mode
+// Browser wallet signs when connected, server fallback for demo.
+import type { WalletClient, Address } from "viem";
 import { executeOrder } from "./execution";
 
 export interface TradeResult {
@@ -10,7 +11,7 @@ export interface TradeResult {
   averagePrice?: number;
   error?: string;
   errorCode?: string;
-  executor: "demo-testnet-server";
+  executor: "browser-wallet" | "demo-testnet-server";
   disclaimer: string;
   /** Execution state for UI */
   state: string;
@@ -20,13 +21,12 @@ export interface TradeResult {
   progress?: Array<{ state: string; message: string; ts: number }>;
 }
 
-const DISCLAIMER =
-  "Demo/Testnet Executor — transaction is not signed by your connected wallet. " +
-  "For production, trades will be signed by your connected wallet.";
-
 /**
  * Execute a trade on DreamDEX Event Contracts.
  * Delegates to the full execution engine for pre-flight, simulation, broadcast, and verification.
+ *
+ * @param walletClient - Optional browser wallet client. When provided, trades are signed by the user's wallet.
+ * @param walletAddress - Optional wallet address for browser signing.
  */
 export async function executeTrade(params: {
   symbol?: string;
@@ -35,6 +35,8 @@ export async function executeTrade(params: {
   amount: number;
   price: number;
   type?: "limit" | "market";
+  walletClient?: WalletClient;
+  walletAddress?: Address;
 }): Promise<TradeResult> {
   const ref = params.marketId || params.symbol;
   if (!ref) {
@@ -42,8 +44,10 @@ export async function executeTrade(params: {
       ok: false,
       error: "Missing symbol or marketId",
       errorCode: "MISSING_PARAMETERS",
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor: params.walletClient ? "browser-wallet" : "demo-testnet-server",
+      disclaimer: params.walletClient
+        ? "Transaction is signed by your connected wallet."
+        : "Demo/Testnet Executor — transaction is not signed by your connected wallet.",
       state: "preflight-failed",
     };
   }
@@ -53,8 +57,10 @@ export async function executeTrade(params: {
       ok: false,
       error: "Amount must be positive",
       errorCode: "INVALID_QUANTITY",
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor: params.walletClient ? "browser-wallet" : "demo-testnet-server",
+      disclaimer: params.walletClient
+        ? "Transaction is signed by your connected wallet."
+        : "Demo/Testnet Executor — transaction is not signed by your connected wallet.",
       state: "preflight-failed",
     };
   }
@@ -64,8 +70,10 @@ export async function executeTrade(params: {
       ok: false,
       error: "Price must be between 0.01 and 0.99",
       errorCode: "INVALID_PRICE",
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor: params.walletClient ? "browser-wallet" : "demo-testnet-server",
+      disclaimer: params.walletClient
+        ? "Transaction is signed by your connected wallet."
+        : "Demo/Testnet Executor — transaction is not signed by your connected wallet.",
       state: "preflight-failed",
     };
   }
@@ -78,8 +86,10 @@ export async function executeTrade(params: {
       ok: false,
       error: `Entry at ${(params.price * 100).toFixed(1)}% is outside the strategic range (${(MIN_STRATEGIC * 100)}%–${(MAX_STRATEGIC * 100)}%). Market strongly ${params.price < MIN_STRATEGIC ? "doubts" : "favors"} this outcome — risk/reward is unfavorable.`,
       errorCode: "PRICE_OUT_OF_STRATEGIC_RANGE",
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor: params.walletClient ? "browser-wallet" : "demo-testnet-server",
+      disclaimer: params.walletClient
+        ? "Transaction is signed by your connected wallet."
+        : "Demo/Testnet Executor — transaction is not signed by your connected wallet.",
       state: "preflight-failed",
     };
   }
@@ -90,6 +100,8 @@ export async function executeTrade(params: {
     amount: params.amount,
     price: params.price,
     type: params.type || "limit",
+    walletClient: params.walletClient,
+    walletAddress: params.walletAddress,
   });
 
   return {

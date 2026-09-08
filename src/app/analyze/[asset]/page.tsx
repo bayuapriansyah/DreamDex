@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { useAccount } from "wagmi";
+import { useAccount, useWalletClient } from "wagmi";
 import * as d3 from "d3";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,6 +13,7 @@ import { stateColor, probColor, formatHorizon, formatProb, formatVelocity, pctSt
 import type { DecisionContext } from "@/lib/dreamdex/decision";
 import { composeStrategies, type StrategyType } from "@/lib/dreamdex/strategy";
 import type { MarketState } from "@/lib/dreamdex/temporal";
+import { executeTrade as executeTradeDirect } from "@/lib/dreamdex/trade";
 
 interface HorizonPoint {
   horizonMinutes: number;
@@ -1024,7 +1025,8 @@ function StrategyComposer({
   asset: string;
   decisionCtx: DecisionContext | null;
 }) {
-  const { address } = useAccount();
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
   const [selected, setSelected] = useState<StrategyType>("balanced");
   const [overrideSide, setOverrideSide] = useState<"auto" | "up" | "down">("auto");
   const [executing, setExecuting] = useState(false);
@@ -1068,19 +1070,37 @@ function StrategyComposer({
         setExecuting(false);
         return;
       }
-      const res = await fetch("/api/dreamdex/trade", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+
+      let data;
+      if (isConnected && walletClient && address) {
+        // Browser wallet signing — user signs their own trade
+        data = await executeTradeDirect({
           marketId: targetHorizon.marketId,
           symbol: asset,
           side: effectiveSide,
           amount: active.suggestedSize,
           price: active.maxEntryPrice,
           type: "limit",
-        }),
-      });
-      const data = await res.json();
+          walletClient,
+          walletAddress: address,
+        });
+      } else {
+        // Server fallback — demo executor
+        const res = await fetch("/api/dreamdex/trade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            marketId: targetHorizon.marketId,
+            symbol: asset,
+            side: effectiveSide,
+            amount: active.suggestedSize,
+            price: active.maxEntryPrice,
+            type: "limit",
+          }),
+        });
+        data = await res.json();
+      }
+
       setTradeResult(data);
       if (data.ok && data.hash) {
         const fillPrice = data.averagePrice ?? active.maxEntryPrice;
@@ -1278,7 +1298,9 @@ function StrategyComposer({
           </div>
 
           <div style={{ fontFamily: "var(--font-data)", fontSize: 9, padding: "4px 8px", color: "var(--text-secondary)", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 3 }}>
-            Demo/Testnet Executor — transaction is not signed by your connected wallet.
+            {isConnected && walletClient
+              ? "Transaction is signed by your connected wallet."
+              : "Demo/Testnet Executor — transaction is not signed by your connected wallet."}
           </div>
 
           {tradeResult && (

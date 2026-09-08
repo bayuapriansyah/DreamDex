@@ -1,6 +1,6 @@
-// Server-side only — DreamDEX Event Contract execution engine
-// Handles: pre-flight validation, price/qty quantization, simulation, broadcast, receipt verification
-import type { Address, Hash, TransactionReceipt } from "viem";
+// DreamDEX Event Contract execution engine
+// Hybrid mode: browser wallet signs when connected, server fallback for demo.
+import type { Address, Hash, TransactionReceipt, WalletClient } from "viem";
 import { toEventSelector, decodeEventLog, maxUint256, createWalletClient, createPublicClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { getExchange } from "./client";
@@ -358,6 +358,10 @@ export interface ExecuteOrderParams {
   price: number;
   type?: "limit" | "market";
   preflight?: PreflightResult;
+  /** Browser wallet client for user-signed transactions. When provided, trades are signed by the user's wallet. */
+  walletClient?: WalletClient;
+  /** Wallet address for browser signing. */
+  walletAddress?: Address;
 }
 
 export interface ExecutionResult {
@@ -377,28 +381,44 @@ export interface ExecutionResult {
   orderStatus?: "open" | "filled" | "partial" | "cancelled" | "expired";
   error?: string;
   errorCode?: string;
-  executor: "demo-testnet-server";
+  executor: "browser-wallet" | "demo-testnet-server";
   disclaimer: string;
   progress: ExecutionProgress[];
 }
 
-const DISCLAIMER =
+const DISCLAIMER_SERVER =
   "Demo/Testnet Executor — transaction is not signed by your connected wallet. " +
   "For production, trades will be signed by your connected wallet.";
+
+const DISCLAIMER_BROWSER =
+  "Transaction is signed by your connected wallet.";
 
 /**
  * Execute a full Event Contract order lifecycle:
  * preflight → simulate → broadcast → receipt → verify → determine fill
+ *
+ * Supports two modes:
+ * - Browser wallet: walletClient provided, signed by user's MetaMask
+ * - Server fallback: demo executor with testnet private key
  */
 export async function executeOrder(params: ExecuteOrderParams): Promise<ExecutionResult> {
   const progress: ExecutionProgress[] = [];
   const now = () => Date.now();
+  const isBrowserSigning = !!params.walletClient;
+  const executor = isBrowserSigning ? "browser-wallet" as const : "demo-testnet-server" as const;
+  const disclaimer = isBrowserSigning ? DISCLAIMER_BROWSER : DISCLAIMER_SERVER;
 
   function push(state: ExecutionState, message: string) {
     progress.push({ state, message, ts: now() });
   }
 
   const exchange = getExchange();
+
+  // ─── Set browser wallet signer if provided ──────────
+  if (isBrowserSigning && params.walletClient) {
+    push("validating", "Connecting browser wallet…");
+    exchange.setSigner({ walletClient: params.walletClient, account: params.walletAddress });
+  }
 
   // ─── Step 1: Pre-flight ─────────────────────────────
   push("validating", "Running pre-flight validation…");
@@ -415,13 +435,15 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
 
   if (preflight.status === "invalid") {
     push("preflight-failed", `Pre-flight failed: ${preflight.reason}`);
+    // Reset signer on failure
+    if (isBrowserSigning) exchange.setSigner({});
     return {
       ok: false,
       state: "preflight-failed",
       error: preflight.reason,
       errorCode: preflight.code,
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor,
+      disclaimer,
       progress,
     };
   }
@@ -431,13 +453,14 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
 
   if (!symbol) {
     push("preflight-failed", "Could not resolve market symbol");
+    if (isBrowserSigning) exchange.setSigner({});
     return {
       ok: false,
       state: "preflight-failed",
       error: "Could not resolve market symbol",
       errorCode: "MARKET_NOT_FOUND",
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor,
+      disclaimer,
       progress,
     };
   }
@@ -455,17 +478,17 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
   try {
     push("validating", "Ensuring token approval…");
 
-    // Create wallet client for explicit ERC-20 approval
-    const privateKey = process.env.DREAMDEX_PRIVATE_KEY as `0x${string}` | undefined;
-    if (privateKey && pool) {
-      try {
-        const account = privateKeyToAccount(privateKey);
-        const walletClient = createWalletClient({
-          account,
-          chain: CHAIN,
-          transport: http(),
-        });
+    // ERC-20 approval: use browser wallet or server key
+    const approvalWalletClient = isBrowserSigning && params.walletClient
+      ? params.walletClient
+      : (() => {
+          const pk = process.env.DREAMDEX_PRIVATE_KEY as `0x${string}` | undefined;
+          if (!pk) return null;
+          return createWalletClient({ account: privateKeyToAccount(pk), chain: CHAIN, transport: http() });
+        })();
 
+    if (approvalWalletClient && pool) {
+      try {
         const collateral = preflight.market?.collateral as Address;
         const decimals = preflight.quoteDecimals || COLLATERAL_DECIMALS;
         const costRaw = BigInt(Math.round(params.price * params.amount * (10 ** decimals)));
@@ -475,22 +498,24 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
           { name: "allowance", type: "function", stateMutability: "view", inputs: [{ name: "owner", type: "address" }, { name: "spender", type: "address" }], outputs: [{ name: "", type: "uint256" }] },
         ] as const;
 
-        const owner = account.address;
+        const owner = params.walletAddress || (isBrowserSigning ? params.walletClient?.account?.address : privateKeyToAccount(process.env.DREAMDEX_PRIVATE_KEY as `0x${string}`).address);
         const publicClient = createPublicClient({ chain: CHAIN, transport: http() });
         const currentAllowance = await publicClient.readContract({
           address: collateral,
           abi: ERC20_ABI,
           functionName: "allowance",
-          args: [owner, pool],
+          args: [owner as Address, pool],
         });
 
         if (currentAllowance < costRaw) {
           push("validating", "Approving collateral token to pool…");
-          const approveHash = await walletClient.writeContract({
+          const approveHash = await approvalWalletClient.writeContract({
             address: collateral,
             abi: ERC20_ABI,
             functionName: "approve",
             args: [pool, maxUint256],
+            chain: CHAIN,
+            account: owner as Address,
           });
           await publicClient.waitForTransactionReceipt({ hash: approveHash });
           push("validating", "Token approved successfully.");
@@ -521,7 +546,7 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
       push("validating", `Converted SELL → BUY_NO on ${orderSymbol} @ ${(orderPrice * 100).toFixed(1)}%`);
     }
 
-    console.log(`[TRADE] symbol=${orderSymbol} type=${params.type || "limit"} side=${orderSide} amount=${params.amount} price=${orderPrice}`);
+    console.log(`[TRADE] symbol=${orderSymbol} type=${params.type || "limit"} side=${orderSide} amount=${params.amount} price=${orderPrice} executor=${executor}`);
 
     const order = await exchange.createOrder(
       orderSymbol,
@@ -615,57 +640,61 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
               hash,
               error: `Transaction reverted on-chain. TX: ${hash}. Check https://shannon-explorer.somnia.network/tx/${hash}`,
               errorCode: "TX_REVERTED",
-              executor: "demo-testnet-server",
-              disclaimer: DISCLAIMER,
-              progress,
-            };
-          }
-        } else {
-          push("confirmed", "Transaction confirmed but receipt not yet available (indexer may lag)");
+              executor,
+            disclaimer,
+            progress,
+          };
         }
-      } catch {
-        push("confirmed", "Transaction mined but receipt not yet available");
+      } else {
+        push("confirmed", "Transaction confirmed but receipt not yet available (indexer may lag)");
       }
+    } catch {
+      push("confirmed", "Transaction mined but receipt not yet available");
     }
+  }
 
-    // Compute human-readable results
-    const humanFilled = order.filled;
-    const humanPrice = order.price ?? params.price;
+  // Compute human-readable results
+  const humanFilled = order.filled;
+  const humanPrice = order.price ?? params.price;
 
-    if (orderStatus === "filled") {
-      push("filled", `Order fully filled. ${humanFilled} @ ${humanPrice.toFixed(4)}`);
-    } else if (orderStatus === "partial") {
-      push("partial", `Order partially filled. ${humanFilled}/${order.amount}`);
-    } else {
-      push("order-verified", `Order placed on book. ID: ${orderId?.toString() ?? "pending"}`);
-    }
+  if (orderStatus === "filled") {
+    push("filled", `Order fully filled. ${humanFilled} @ ${humanPrice.toFixed(4)}`);
+  } else if (orderStatus === "partial") {
+    push("partial", `Order partially filled. ${humanFilled}/${order.amount}`);
+  } else {
+    push("order-verified", `Order placed on book. ID: ${orderId?.toString() ?? "pending"}`);
+  }
 
-    return {
-      ok: true,
-      state: orderStatus === "filled" ? "filled" : orderStatus === "partial" ? "partial" : "order-verified",
-      hash,
-      receipt,
-      orderId,
-      fills,
-      filledQuantity: humanFilled,
-      averagePrice: humanPrice,
-      orderStatus,
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
-      progress,
-    };
-  } catch (e: unknown) {
+  // Reset signer after successful trade
+  if (isBrowserSigning) exchange.setSigner({});
+
+  return {
+    ok: true,
+    state: orderStatus === "filled" ? "filled" : orderStatus === "partial" ? "partial" : "order-verified",
+    hash,
+    receipt,
+    orderId,
+    fills,
+    filledQuantity: humanFilled,
+    averagePrice: humanPrice,
+    orderStatus,
+    executor,
+    disclaimer,
+    progress,
+  };
+} catch (e: unknown) {
     // Handle SDK-specific error types first
     if (e instanceof ContractRevertError) {
       const name = e.errorName || "UnknownRevert";
       push("failed", `Contract reverted: ${name}`);
+      if (isBrowserSigning) exchange.setSigner({});
       return {
         ok: false,
         state: "failed",
         error: `Contract reverted: ${name}`,
         errorCode: name.toUpperCase(),
-        executor: "demo-testnet-server",
-        disclaimer: DISCLAIMER,
+        executor,
+        disclaimer,
         progress,
       };
     }
@@ -674,50 +703,54 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
 
     if (msg.includes("UserDenied") || msg.includes("user rejected") || msg.includes("rejected")) {
       push("rejected", "Transaction rejected by signer");
+      if (isBrowserSigning) exchange.setSigner({});
       return {
         ok: false,
         state: "rejected",
         error: "Transaction rejected by signer",
         errorCode: "USER_DENIED",
-        executor: "demo-testnet-server",
-        disclaimer: DISCLAIMER,
+        executor,
+        disclaimer,
         progress,
       };
     }
 
     if (msg.includes("InsufficientFunds") || msg.includes("insufficient")) {
       push("failed", "Insufficient collateral");
+      if (isBrowserSigning) exchange.setSigner({});
       return {
         ok: false,
         state: "failed",
         error: "Insufficient collateral for this order",
         errorCode: "INSUFFICIENT_BALANCE",
-        executor: "demo-testnet-server",
-        disclaimer: DISCLAIMER,
+        executor,
+        disclaimer,
         progress,
       };
     }
 
     if (msg.includes("simulation") || msg.includes("estimateGas") || msg.includes("call")) {
       push("simulation-failed", `Simulation failed: ${msg.slice(0, 200)}`);
+      if (isBrowserSigning) exchange.setSigner({});
       return {
         ok: false,
         state: "simulation-failed",
         error: `Simulation failed: ${msg.slice(0, 200)}`,
         errorCode: "SIMULATION_FAILED",
-        executor: "demo-testnet-server",
-        disclaimer: DISCLAIMER,
+        executor,
+        disclaimer,
         progress,
       };
     }
 
     push("failed", msg.slice(0, 300));
+    if (isBrowserSigning) exchange.setSigner({});
     return {
       ok: false,
       state: "failed",
       error: msg.slice(0, 300),
-      executor: "demo-testnet-server",
-      disclaimer: DISCLAIMER,
+      executor,
+      disclaimer,
       progress,
     };
   }

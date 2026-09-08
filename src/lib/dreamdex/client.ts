@@ -1,27 +1,18 @@
-// Server-side only — DreamDEX SDK singleton
-// Uses testnet private key for demo trade execution.
-// Browser wallet signing (user's wallet) is TODO for post-hackathon.
+// DreamDEX SDK singleton
+// Hybrid mode: browser wallet signs when connected, server fallback for demo.
 import { SomniaMarkets } from "@somnia-chain/markets-sdk";
+import type { WalletClient } from "viem";
 import { CHAIN, ADDRESSES, WS_RPC_URL, INDEXER_URL } from "./config";
 
 let exchange: SomniaMarkets | null = null;
 
 /**
  * Get the singleton SomniaMarkets instance.
- * Server-side only — initializes with DREAMDEX_PRIVATE_KEY for demo trades.
- *
- * TODO: Add browser wallet signing via setSigner({ walletClient })
+ * Initializes without signer for public reads.
+ * Signer is set dynamically via setExchangeSigner() on wallet connect.
  */
 export function getExchange(): SomniaMarkets {
   if (exchange) return exchange;
-
-  const privateKey = process.env.DREAMDEX_PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x..." || privateKey === "0xYOUR_TESTNET_PRIVATE_KEY_HERE") {
-    throw new Error(
-      "DREAMDEX_PRIVATE_KEY not set in .env.local. " +
-        "Add a funded Shannon testnet private key."
-    );
-  }
 
   if (!WS_RPC_URL) {
     throw new Error(
@@ -37,13 +28,44 @@ export function getExchange(): SomniaMarkets {
     );
   }
 
+  // Try to initialize with server key for demo fallback
+  const privateKey = process.env.DREAMDEX_PRIVATE_KEY;
+  const hasServerKey = privateKey && privateKey !== "0x..." && privateKey !== "0xYOUR_TESTNET_PRIVATE_KEY_HERE";
+
   exchange = new SomniaMarkets({
     chain: CHAIN,
     addresses: ADDRESSES,
-    privateKey: privateKey as `0x${string}`,
+    ...(hasServerKey ? { privateKey: privateKey as `0x${string}` } : {}),
     wsRpcUrl: WS_RPC_URL,
     indexerUrl: INDEXER_URL,
   });
 
   return exchange;
+}
+
+/**
+ * Connect a browser wallet to the SDK for trade signing.
+ * Call this when wagmi's useWalletClient returns a wallet client.
+ * After this, exchange.createOrder() will sign via the browser wallet.
+ */
+export function setExchangeSigner(walletClient: WalletClient): void {
+  const ex = getExchange();
+  ex.setSigner({ walletClient });
+}
+
+/**
+ * Disconnect the browser wallet signer.
+ * Returns the exchange to server-side signing (if available) or unauthenticated reads.
+ */
+export function clearExchangeSigner(): void {
+  const ex = getExchange();
+  ex.setSigner({});
+}
+
+/**
+ * Check if the exchange has a browser wallet signer attached.
+ */
+export function hasBrowserSigner(): boolean {
+  const ex = getExchange();
+  return !!ex.walletAddress;
 }

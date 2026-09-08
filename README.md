@@ -282,6 +282,20 @@ Uses DreamDEX SDK's `placeOrder()` entry point:
 5. **OrderPlaced** — verify order exists on CLOB
 6. **OrderFilled** — check if IOC fill occurred
 
+### Hybrid Wallet Mode
+
+- **Browser wallet connected** → trade is signed by user's MetaMask via `exchange.setSigner({ walletClient })`
+- **No wallet connected** → server-side demo executor with testnet private key (fallback)
+
+### SELL → BUY_NO Conversion
+
+DreamDEX binary pools use ERC-6909 outcome tokens. `SELL_YES` requires pre-holding YES tokens. Horizon automatically converts bearish trades to **BUY_NO** (tUSDC → NO tokens) for equivalent exposure without requiring YES token inventory:
+`SELL_YES @ price ≡ BUY_NO @ (1 - price)`
+
+### Indexer Retry
+
+Portfolio/positions pages include automatic retry with timeout handling for slow Somnia indexer responses (2 retries, 15s timeout per attempt).
+
 > **Demo/Testnet Executor** — transaction is not signed by your connected wallet.
 > This is a server-side testnet fallback for hackathon demonstration.
 
@@ -433,5 +447,5 @@ npx vitest run
 ---
 
 <p align="center">
-  <strong>© 2026 Horizon.</strong>
+  <strong>MIT License © 2026 Horizon</strong>
 </p>
