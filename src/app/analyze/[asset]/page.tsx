@@ -1087,7 +1087,7 @@ function StrategyComposer({
         const thesisEntry = {
           id: `pos-${data.hash}-0`,
           asset,
-          direction: effectiveSide as "up" | "down",
+          direction: (effectiveSide === "buy" ? "up" : "down") as "up" | "down",
           horizon: active.suggestedHorizon,
           entryProbability: fillPrice,
           thesis: `Temporal thesis: ${trajectory.state}. Velocity ${trajectory.metrics.velocityPerHour.toFixed(2)}/hr, persistence ${(trajectory.metrics.persistence * 100).toFixed(0)}%.`,

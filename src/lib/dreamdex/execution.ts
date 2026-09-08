@@ -505,14 +505,30 @@ export async function executeOrder(params: ExecuteOrderParams): Promise<Executio
 
     push("broadcasting", "Broadcasting transaction…");
 
-    console.log(`[TRADE] symbol=${symbol} type=${params.type || "limit"} side=${params.side} amount=${params.amount} price=${params.price}`);
+    // ── SELL → BUY_NO conversion ──
+    // DreamDEX binary pools use ERC-6909 outcome tokens.
+    // SELL_YES requires pre-holding YES tokens (which demo wallet may not have).
+    // BUY_NO achieves the same bearish exposure using only tUSDC:
+    //   SELL_YES @ price  ≡  BUY_NO @ (1 - price)
+    let orderSymbol = symbol;
+    let orderSide = params.side;
+    let orderPrice = params.price;
+
+    if (params.side === "sell") {
+      orderSymbol = symbol.includes("#") ? symbol : `${symbol}#NO`;
+      orderSide = "buy";
+      orderPrice = 1 - params.price;
+      push("validating", `Converted SELL → BUY_NO on ${orderSymbol} @ ${(orderPrice * 100).toFixed(1)}%`);
+    }
+
+    console.log(`[TRADE] symbol=${orderSymbol} type=${params.type || "limit"} side=${orderSide} amount=${params.amount} price=${orderPrice}`);
 
     const order = await exchange.createOrder(
-      symbol,
+      orderSymbol,
       params.type || "limit",
-      params.side,
+      orderSide,
       params.amount,
-      params.price,
+      orderPrice,
       {
         timeInForce: params.type === "market" ? "IOC" : "GTC",
       }
