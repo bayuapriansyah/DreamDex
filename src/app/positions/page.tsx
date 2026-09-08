@@ -161,7 +161,12 @@ export default function PositionsPage() {
 
     async function load() {
       try {
-        const res = await fetch(`/api/dreamdex/positions?wallet=${address}`, { cache: "no-store" });
+        const res = await Promise.race([
+          fetch(`/api/dreamdex/positions?wallet=${address}`, { cache: "no-store" }),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Network timeout — indexer is slow")), 20000)
+          ),
+        ]);
         const data = await res.json();
         if (!fetchedRef.current) {
           if (data.ok) {

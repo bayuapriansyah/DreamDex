@@ -58,11 +58,36 @@ export interface FetchPositionsResult {
  *
  * IMPORTANT: This reads from the INDEXER which may lag on-chain state by seconds.
  */
+async function fetchPortfolioWithRetry(
+  exchange: ReturnType<typeof getExchange>,
+  walletAddress: string,
+  retries = 2,
+  timeoutMs = 15000
+): Promise<Awaited<ReturnType<typeof exchange.client.getPortfolio>>> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await Promise.race([
+        exchange.client.getPortfolio(walletAddress),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Indexer timeout — Somnia indexer is responding slowly. Retrying…")), timeoutMs)
+        ),
+      ]);
+    } catch (e) {
+      lastError = e;
+      if (attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 export async function fetchPositions(walletAddress: string): Promise<FetchPositionsResult> {
   const exchange = getExchange();
 
   try {
-    const portfolio = await exchange.client.getPortfolio(walletAddress);
+    const portfolio = await fetchPortfolioWithRetry(exchange, walletAddress);
 
     const positions: Position[] = portfolio.positions.map((p) => {
       const decimals = p.market.quoteDecimals || COLLATERAL_DECIMALS;

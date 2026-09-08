@@ -23,7 +23,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await fetchPositions(wallet);
+    const result = await Promise.race([
+      fetchPositions(wallet),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Positions fetch timed out. The Somnia indexer may be temporarily slow — try again in a few seconds.")), 25000)
+      ),
+    ]);
 
     return NextResponse.json(
       {
@@ -42,9 +47,15 @@ export async function GET(request: NextRequest) {
     );
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : "Unknown error";
+    const isTimeout = msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out") || msg.toLowerCase().includes("aborted");
     return NextResponse.json(
-      { ok: false, error: msg },
-      { status: 500 }
+      {
+        ok: false,
+        error: msg,
+        retryable: isTimeout,
+        hint: isTimeout ? "The Somnia indexer is slow. Positions may appear after a retry." : undefined,
+      },
+      { status: 200 }
     );
   }
 }
