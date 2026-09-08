@@ -87,6 +87,10 @@ Horizon aggregates multiple rolling Event Contract horizons for the same asset a
 | | Deterministic evidence & explanation | ✅ |
 | | What Changed breakdown | ✅ |
 | **Trading** | Strategy Composer (3 risk profiles) | ✅ |
+| | Strategy-specific risk gates (conflict severity, reversal score) | ✅ |
+| | Directional expected edge (BUY: fair−entry, SELL: entry−fair) | ✅ |
+| | Risk-based position sizing (confidence × edge × liquidity) | ✅ |
+| | Dynamic TP/SL (volatility-adjusted) | ✅ |
 | | Direction Override (manual UP/DOWN toggle) | ✅ |
 | | DreamDEX on-chain execution | ✅ |
 | | Trade preview with entry, direction, sizing | ✅ |
@@ -224,6 +228,49 @@ Actionability determines whether the system recommends trading:
 
 ---
 
+## Strategy Engine
+
+Each strategy profile (Conservative / Balanced / Aggressive) has its own risk policy:
+
+| Parameter | Conservative | Balanced | Aggressive |
+|-----------|-------------|----------|------------|
+| Hard conflict gate | 0.5 | 0.8 | 1.0 |
+| Hard reversal gate | 0.3 | 0.6 | 0.9 |
+| Min expected edge | 5pp | 2pp | 2pp |
+| Size multiplier | 0.5x | 1x | 2x |
+| Uncertainty penalty | 0.7 | 0.5 | 0.3 |
+
+### Risk Gates (per-strategy)
+
+Trades are blocked when:
+1. **Conflict severity** exceeds `hardConflictGate` — horizons disagree too much
+2. **Reversal score** exceeds `hardReversalGate` — strong reversal signal detected
+3. **Expected edge** below `minEdge` — not enough edge after costs
+
+### Directional Expected Edge
+
+- **BUY**: `fairProbability − entryPrice` (positive when fair value > entry)
+- **SELL**: `entryPrice − fairProbability` (positive when entry > fair value)
+- Fair probability = trajectory-adjusted mid (`mid + velocityPerHour × horizonHours`)
+
+### Risk-Based Position Size
+
+```
+size = multiplier × edge × confidence × liquidity / uncertainty × MAX_POSITION_SIZE
+```
+
+Position size can be 0 — `isExecutable: false` when edge/confidence too low.
+
+### Block Reasons
+
+When a strategy blocks a trade, `blockReason` explains why:
+- `"Conflict severity 1.00 exceeds threshold 0.80."`
+- `"Reversal score 0.72 exceeds threshold 0.60."`
+- `"Expected edge 0.5pp below minimum 2.0pp."`
+- `"Position size too small — insufficient edge/confidence for execution."`
+
+---
+
 ## Trade Execution
 
 Uses DreamDEX SDK's `placeOrder()` entry point:
@@ -280,7 +327,7 @@ Lifecycle: TRADING → LOCKED → SETTLING → RESOLVED → FINALIZED → REDEEM
 | State | TanStack Query v5 |
 | Wallet | wagmi v3 + viem 2.x |
 | DreamDEX SDK | @somnia-chain/markets-sdk 0.29.0 |
-| AI (optional) | OpenRouter |
+| AI (optional) | Google Gemini (gemini-2.5-flash) |
 | Database (optional) | Supabase Postgres |
 | Testing | Vitest |
 | Network | Somnia Shannon Testnet (Chain ID 50312) |
@@ -325,8 +372,8 @@ npx vitest run
 | `SOMNIA_INDEXER_URL` | Yes | Server | `https://dev.smk.somnia.host/v1/graphql` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Optional | Public | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Public | Supabase anon key |
-| `OPENROUTER_API_KEY` | Optional | Server | AI explanation API key |
-| `OPENROUTER_MODEL` | Optional | Server | AI model identifier |
+| `GEMINI_API_KEY` | Optional | Server | Google Gemini API key for AI explanation |
+| `GEMINI_MODEL` | Optional | Server | AI model (default: `gemini-2.5-flash`) |
 | `NEXT_PUBLIC_APP_URL` | Optional | Public | Production app URL |
 
 **Security:** Private keys are server-side only. Never put secrets in `NEXT_PUBLIC_*` variables.
@@ -336,11 +383,12 @@ npx vitest run
 ## Test Results
 
 ```
-✓ 198/198 tests pass (9 test files)
+✓ 232/232 tests pass (10 test files)
   - formatting.test.ts
   - normalization.test.ts
   - forecast.test.ts
   - decision.test.ts
+  - strategy.test.ts
   - execution.test.ts
   - settlement.test.ts
   - position.test.ts
@@ -359,7 +407,7 @@ npx vitest run
 2. **Demo executor** — Server-side private key signs transactions. Not user-wallet signing.
 3. **Event Contract cadences** — Currently supports 5m, 1h, and 4h horizons (verified on Shannon testnet). 24h excluded (too long for demo).
 4. **No MetaMask signing** — Browser wallet signing is architecture-ready but not yet implemented for Event Contracts.
-5. **AI explanations optional** — Deterministic analysis works without AI. AI layer requires OpenRouter API key.
+5. **AI explanations optional** — Deterministic analysis works without AI. AI layer requires Google Gemini API key.
 6. **Somnia testnet may be degraded** — RPC and binary market pools may be temporarily unavailable. SDK includes cold start retry logic.
 7. **Market lifecycle** — Event Contracts expire. When all horizons for an asset expire, the page shows "Insufficient Data" until new markets are listed.
 
@@ -377,7 +425,7 @@ npx vitest run
 | Criterion | Weight | Our Approach |
 |-----------|--------|-------------|
 | Innovation | 20% | Temporal intelligence layer — the first tool to show how Event Contract conviction evolves across time horizons |
-| Technical Implementation | 25% | Real SDK integration, on-chain execution, deterministic analytics pipeline, 198 tests |
+| Technical Implementation | 25% | Real SDK integration, on-chain execution, deterministic analytics pipeline, 232 tests |
 | UX | 20% | Market Workspace with sticky trade ticket, orderbook, event context, terminal-style dark UI |
 | Business/Ecosystem Impact | 20% | Adds a decision-support layer DreamDEX currently lacks — makes Event Contracts more usable for active traders |
 | Presentation/Demo | 15% | Real testnet data, real execution, clear narrative: "DreamDEX gives you a number. Horizon gives you the trajectory." |
