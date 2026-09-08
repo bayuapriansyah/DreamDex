@@ -195,7 +195,7 @@ function computeActionability(
   trajectory: TemporalTrajectory,
   quality: DecisionQuality
 ): "high" | "medium" | "low" {
-  const { confidence, reversalRisk, trajectoryScore } = trajectory;
+  const { confidence, reversalRisk, trajectoryScore, conflictSeverity, reversalScore } = trajectory;
 
   // Average probability from valid horizons
   const valid = trajectory.horizons.filter((h) => h.midProbability !== null);
@@ -226,8 +226,11 @@ function computeActionability(
     horizonAgreement * 0.15 +
     quality.dataQuality * 0.15;
 
-  if (score > 0.6) return "high";
-  if (score > 0.35) return "medium";
+  // Penalty for conflict and reversal heuristics
+  const adjustedScore = Math.max(score - conflictSeverity * 0.2 - reversalScore * 0.1, 0);
+
+  if (adjustedScore > 0.6) return "high";
+  if (adjustedScore > 0.35) return "medium";
   return "low";
 }
 

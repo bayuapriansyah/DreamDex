@@ -61,6 +61,10 @@ export interface TemporalTrajectory {
   whatChanged: string;
   why: string;
   evidence: string[];
+  /** Conflict severity heuristic 0-1 (NOT a probability). */
+  conflictSeverity: number;
+  /** Reversal score heuristic 0-1 (NOT a probability). */
+  reversalScore: number;
 }
 
 export interface TemporalMetrics {
@@ -236,6 +240,8 @@ export async function computeTemporalTrajectory(
         `Volume: ${avgVolume.toFixed(1)} contracts`,
         "Multi-horizon comparison unavailable with single data point.",
       ],
+      conflictSeverity: 0,
+      reversalScore: 0,
     };
   }
 
@@ -262,6 +268,8 @@ export async function computeTemporalTrajectory(
     whatChanged,
     why,
     evidence,
+    conflictSeverity: Math.min(metrics.crossHorizonDivergence * 5, 1.0),
+    reversalScore: computeReversalScoreLocal(metrics, validHorizons),
   };
 }
 
@@ -527,6 +535,33 @@ function computeReversalRisk(
   return Math.min(risk, 1);
 }
 
+/**
+ * Compute reversal score as a heuristic 0-1 score.
+ * NOT a probability of reversal occurring.
+ * Local version to avoid circular dependency with strategy.ts.
+ */
+function computeReversalScoreLocal(
+  metrics: TemporalMetrics,
+  horizons: HorizonProbability[]
+): number {
+  let score = 0;
+
+  if (horizons.length >= 3) {
+    const sorted = sortByHorizon(horizons);
+    const probs = sorted.map((h) => h.midProbability as number);
+    const shortToMid = probs[1] - probs[0];
+    const midToLong = probs[probs.length - 1] - probs[1];
+    if (shortToMid * midToLong < 0 && Math.abs(metrics.velocityPerHour) > 0.01) {
+      score += 0.4;
+    }
+  }
+
+  score += Math.min(Math.abs(metrics.velocityPerHour) * 3, 0.3);
+  score += metrics.crossHorizonDivergence * 0.3;
+
+  return Math.min(score, 1.0);
+}
+
 function generateWhatChanged(
   horizons: HorizonProbability[],
   metrics: TemporalMetrics,
@@ -773,5 +808,7 @@ function emptyTrajectory(
     whatChanged: "No data available.",
     why: "Not enough market data to form a trajectory interpretation.",
     evidence: ["No market data available."],
+    conflictSeverity: 0,
+    reversalScore: 0,
   };
 }

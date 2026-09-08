@@ -1,6 +1,6 @@
 import { sortByHorizon } from "./normalization";
 import { formatHorizon, pctStr } from "./formatting";
-import { OPENROUTER_MODEL, APP_URL } from "./config";
+import { GEMINI_MODEL, GEMINI_API_URL } from "./config";
 
 interface TrajectoryInput {
   asset: string;
@@ -43,7 +43,7 @@ export async function generateAIExplanation(
   trajectory: TrajectoryInput,
   question?: string
 ): Promise<AIExplanation> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     return generateDeterministicFallback(trajectory, question);
@@ -93,18 +93,14 @@ Rules:
 - Do NOT provide financial advice or guaranteed outcomes`;
 
   try {
-    const res = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
+    const res = await fetch(GEMINI_API_URL, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": APP_URL,
-          "X-Title": "DreamDex Temporal",
         },
         body: JSON.stringify({
-          model: OPENROUTER_MODEL,
+          model: GEMINI_MODEL,
           messages: [{ role: "user", content: prompt }],
           max_tokens: 500,
           temperature: 0.3,
@@ -334,7 +330,7 @@ export async function generateChatResponse(
   trajectory: TrajectoryInput,
   messages: ChatMessage[]
 ): Promise<ChatResponse> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
 
   const hasData = trajectory.horizons.some((h) => h.midProbability !== null);
@@ -376,22 +372,19 @@ WHY: ${trajectory.why}`
   }));
 
   const models = [
-    OPENROUTER_MODEL,
-    "google/gemma-4-31b-it:free",
-    "google/gemma-4-26b-a4b-it:free",
-    "minimax/minimax-m3:free",
+    GEMINI_MODEL,
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
   ];
 
   let lastError = "";
 
   for (const model of models) {
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const res = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
-        "HTTP-Referer": APP_URL,
-        "X-Title": "Horizon Copilot",
       },
       body: JSON.stringify({
         model,

@@ -55,6 +55,8 @@ interface Trajectory {
   whatChanged: string;
   why: string;
   evidence: string[];
+  conflictSeverity: number;
+  reversalScore: number;
 }
 
 function formatTimeLeft(seconds: number): string {
@@ -1039,19 +1041,8 @@ function StrategyComposer({
   // Actionability: use deterministic actionability from DecisionContext
   const actionability = decisionCtx?.actionability ?? "low";
 
-  // Average probability from trajectory — used for trade suppression
-  const avgProb = useMemo(() => {
-    const valid = trajectory.horizons.filter((h) => h.midProbability !== null);
-    if (valid.length === 0) return 0.5;
-    return valid.reduce((a, h) => a + (h.midProbability as number), 0) / valid.length;
-  }, [trajectory.horizons]);
-
-  const suppressTrade = (selected === "conservative" && actionability !== "high")
-    || (selected === "balanced" && actionability === "low")
-    || avgProb < 0.15
-    || avgProb > 0.85
-    || trajectory.state === "insufficient-data"
-    || trajectory.state === "cross-horizon-conflict";
+  // Strategy engine handles all risk gating via isExecutable
+  const isTradeBlocked = !active.isExecutable;
 
   // Effective side: override or auto
   const effectiveSide: "buy" | "sell" | "hold" = overrideSide === "auto"
@@ -1225,7 +1216,7 @@ function StrategyComposer({
         </TabsContent>
       </Tabs>
 
-      {effectiveSide !== "hold" && active.side !== "hold" && !suppressTrade ? (
+      {effectiveSide !== "hold" && active.side !== "hold" && !isTradeBlocked ? (
         <div style={{ marginTop: 10 }} className="space-y-2">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
@@ -1358,7 +1349,7 @@ function StrategyComposer({
               : `Execute Trade · ${effectiveSide === "buy" ? "Buy Yes (Long)" : "Sell Yes (Short)"} @ ${formatProb(active.maxEntryPrice)}%`}
           </button>
         </div>
-      ) : suppressTrade ? (
+      ) : isTradeBlocked ? (
         <div style={{ marginTop: 10 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
             <div style={{ padding: "6px 8px", textAlign: "center", background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 3 }}>
@@ -1375,10 +1366,7 @@ function StrategyComposer({
             </div>
           </div>
           <p style={{ fontFamily: "var(--font-data)", fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-            No high-confidence setup detected. Market conviction is conflicted.
-            Execution remains available, but confidence is limited.
-            {trajectory.confidence < 0.5 ? ` Signal confidence ${pctStr(trajectory.confidence, 0)}%.` : ""}
-            {trajectory.reversalRisk > 0.5 ? ` Reversal risk ${pctStr(trajectory.reversalRisk, 0)}%.` : ""}
+            {active.blockReason ?? "No high-confidence setup detected."}
           </p>
         </div>
       ) : (

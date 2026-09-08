@@ -49,6 +49,8 @@ function makeTrajectory(overrides: Partial<TemporalTrajectory> = {}): TemporalTr
     whatChanged: "Probability increases from 15m to 60m.",
     why: "Consistent bullish conviction.",
     evidence: ["Probability range: 60.0% → 65.0%"],
+    conflictSeverity: 0.15,
+    reversalScore: 0.05,
     ...overrides,
   };
 }

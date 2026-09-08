@@ -25,9 +25,11 @@ export const ONE = BigInt(10 ** COLLATERAL_DECIMALS);
 export const INDEXER_URL = process.env.SOMNIA_INDEXER_URL;
 export const WS_RPC_URL = process.env.SOMNIA_WS_RPC_URL;
 
-// AI configuration — from environment
-export const OPENROUTER_MODEL =
-  process.env.OPENROUTER_MODEL || "minimax/minimax-m3:free";
+// AI configuration — Google Gemini (OpenAI-compatible endpoint)
+export const GEMINI_MODEL =
+  process.env.GEMINI_MODEL || "gemini-2.5-flash";
+export const GEMINI_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 export const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
