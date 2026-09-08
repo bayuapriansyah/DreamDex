@@ -18,7 +18,18 @@ function readThesisJson<T>(wallet: string, suffix: string): Record<string, T> {
   if (typeof window === "undefined") return {};
   try {
     const raw = localStorage.getItem(walletKey(wallet, suffix));
-    return raw ? JSON.parse(raw) : {};
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const map: Record<string, T> = {};
+      for (const item of parsed) {
+        const entry = item as Record<string, unknown>;
+        const key = (entry.id || entry.positionId) as string | undefined;
+        if (key) map[key] = item as T;
+      }
+      return map;
+    }
+    return parsed as Record<string, T>;
   } catch {
     return {};
   }
@@ -29,6 +40,7 @@ function readThesisJson<T>(wallet: string, suffix: string): Record<string, T> {
 /* ═══════════════════════════════════════════════════════ */
 
 interface ThesisEntry {
+  id?: string;
   positionId: string;
   marketId: string;
   asset: string;
@@ -151,6 +163,7 @@ export default function PositionsPage() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [openOrders, setOpenOrders] = useState<OpenOrder[]>([]);
   const [recentTrades, setRecentTrades] = useState<RecentTrade[]>([]);
+  const [rawTheses, setRawTheses] = useState<ThesisEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const fetchedRef = useRef(false);
@@ -170,7 +183,7 @@ export default function PositionsPage() {
         const data = await res.json();
         if (!fetchedRef.current) {
           if (data.ok) {
-            const theses = readThesisJson<ThesisEntry>(address!, "theses");
+            const theses = readThesisJson<ThesisEntry>(address!, "thesis-monitor");
             const comparisons = readThesisJson<ComparisonEntry>(address!, "comparisons");
             const enriched = (data.positions ?? []).map((pos: Position) => ({
               ...pos,
@@ -194,6 +207,25 @@ export default function PositionsPage() {
     void load();
     const interval = setInterval(() => void load(), 15000);
     return () => { fetchedRef.current = true; clearInterval(interval); };
+  }, [address]);
+
+  function loadTheses() {
+    if (!address) return;
+    try {
+      const raw = localStorage.getItem(walletKey(address, "thesis-monitor"));
+      if (!raw) { setRawTheses([]); return; }
+      const parsed = JSON.parse(raw);
+      setRawTheses(Array.isArray(parsed) ? parsed as ThesisEntry[] : []);
+    } catch {
+      setRawTheses([]);
+    }
+  }
+
+  useEffect(() => {
+    if (!address) return;
+    loadTheses();
+    const interval = setInterval(loadTheses, 15000);
+    return () => clearInterval(interval);
   }, [address]);
 
   const activePositions = positions.filter((p) => p.status === "open" || p.status === "partial");
@@ -240,7 +272,7 @@ export default function PositionsPage() {
         {[
           { label: "OPEN", value: activePositions.length, color: activePositions.length > 0 ? "var(--accent)" : "var(--text-secondary)" },
           { label: "LOCKED", value: lockedPositions.length, color: lockedPositions.length > 0 ? "var(--accent-secondary)" : "var(--text-secondary)" },
-          { label: "THESES", value: thesisPositions.length, color: thesisPositions.length > 0 ? "var(--accent)" : "var(--text-secondary)" },
+          { label: "THESES", value: rawTheses.length, color: rawTheses.length > 0 ? "var(--accent)" : "var(--text-secondary)" },
         ].map((item, i) => (
           <div key={item.label} className="card text-center animate-fade-up" style={{ padding: 20, animationDelay: `${0.05 + i * 0.05}s` }}>
             <div className="form-label" style={{ marginBottom: 8 }}>{item.label}</div>
@@ -557,6 +589,47 @@ export default function PositionsPage() {
                   </span>
                   <span style={{ fontSize: 11, fontFamily: "var(--font-data)", color: "var(--text-tertiary)" }}>
                     {new Date(Number(trade.timestamp) * 1000).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Local Theses */}
+      {isConnected && rawTheses.length > 0 && (
+        <section style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
+          <div className="form-label">ACTIVE THESES</div>
+          {rawTheses.map((thesis, i) => (
+            <div key={thesis.positionId || String(i)} className="card" style={{ padding: 16 }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span style={{ fontSize: 14, fontFamily: "var(--font-display)", fontWeight: 600, color: "var(--text-primary)" }}>
+                    {thesis.asset}
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    fontFamily: "var(--font-data)",
+                    fontWeight: 600,
+                    color: thesis.direction === "up" ? "var(--accent)" : "var(--accent-secondary)",
+                  }}>
+                    {thesis.direction.toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: 11, fontFamily: "var(--font-data)", color: "var(--text-tertiary)" }}>
+                    {formatHorizon(thesis.horizon)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span style={{ fontSize: 12, fontFamily: "var(--font-data)", color: "var(--text-primary)" }}>
+                    ENTRY {formatProb(thesis.entryProbability)}%
+                  </span>
+                  <span style={{
+                    fontSize: 11,
+                    fontFamily: "var(--font-data)",
+                    color: thesis.trajectoryScore > 60 ? "var(--accent)" : thesis.trajectoryScore > 30 ? "var(--accent-warn)" : "var(--accent-secondary)",
+                  }}>
+                    SCORE {pctStr(thesis.trajectoryScore, 0)}%
                   </span>
                 </div>
               </div>
