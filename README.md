@@ -438,7 +438,7 @@ npx vitest run
 
 | Criterion | Weight | Our Approach |
 |-----------|--------|-------------|
-| Innovation | 20% | Temporal intelligence layer — the first tool to show how Event Contract conviction evolves across time horizons |
+| Innovation | 20% | Temporal intelligence layer — maps Event Contract conviction across short-, medium-, and long-term time horizons to reveal changes in market expectations |
 | Technical Implementation | 25% | Real SDK integration, on-chain execution, deterministic analytics pipeline, 232 tests |
 | UX | 20% | Market Workspace with sticky trade ticket, orderbook, event context, terminal-style dark UI |
 | Business/Ecosystem Impact | 20% | Adds a decision-support layer DreamDEX currently lacks — makes Event Contracts more usable for active traders |
